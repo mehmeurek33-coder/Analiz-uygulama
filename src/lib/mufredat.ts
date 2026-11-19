@@ -80,28 +80,63 @@ export const MUFREDAT: Ders[] = [
     ],
   },
   {
+    // TUSDATA "Tüm TUS Soruları - Mikrobiyoloji ve Enfeksiyon Hastalıkları" (35. baskı, 2025)
+    // içindekiler sayfasındaki bölümler. Çok kısa bölümler komşusuyla birleştirildi
+    // (örn. Riketsiyalar + Coxiella). Yorumdaki sayılar kitabın sayfa aralıklarıdır.
     ders: "Mikrobiyoloji",
     grup: "Temel Bilimler",
     konular: [
-      "Genel Bakteriyoloji",
-      "Sterilizasyon ve Dezenfeksiyon",
-      "Gram Pozitif Koklar",
-      "Gram Pozitif Basiller",
-      "Gram Negatif Koklar",
-      "Enterobakteriler",
-      "Diğer Gram Negatif Basiller",
-      "Mikobakteriler",
-      "Spiroketler",
-      "Riketsiya, Klamidya ve Mikoplazma",
-      "Anaerop Bakteriler",
-      "Genel Viroloji",
-      "DNA Virusları",
-      "RNA Virusları",
-      "Hepatit Virusları ve HIV",
-      "Mikoloji",
-      "Parazitoloji",
-      "İmmünoloji",
-      "Hastane Enfeksiyonları",
+      // Temel Mikrobiyoloji
+      "Mikroorganizmaların Sınıflandırılması", //   1-5
+      "Bakteri Hücresinin Yapısı", //               6-16
+      "Bakteri Metabolizması ve Üreme", //         17-22
+      "Bakteri Genetiği", //                       23-28
+      "Bakteri Toksinleri", //                     29-35
+      "Dezenfeksiyon ve Sterilizasyon", //         36-41
+      "Antimikrobiyaller", //                      42-55
+      // Bakteriyoloji
+      "Gram Pozitif Koklar", //                    56-83
+      "Bacillus ve Clostridium", //                84-94
+      "Sporsuz Gram Pozitif Basiller", //          95-106
+      "Gram Negatif Diplokoklar", //              107-114
+      "Enterobakteriler", //                      115-126
+      "Vibrio, Campylobacter ve Helicobacter", // 127-138
+      "Gram Negatif Kokobasiller", //             139-155
+      "Non-Fermentatif Gram Negatif Basiller", // 156-161
+      "Çeşitli Gram Negatif Bakteriler", //       162-169
+      "Mikobakteriler", //                        170-181
+      "Spiroketler", //                           182-191
+      "Riketsiya ve Coxiella", //                 192-193
+      "Klamidyalar", //                           194-197
+      "Mikoplazmalar", //                         198-201
+      "Anaerop Bakteriler", //                    202-204
+      "Mikrobiyolojik Örnek Alma", //             205-209
+      // Mikoloji
+      "Temel Mikoloji", //                        210-212
+      "Yüzeyel ve Kutanöz Mikozlar", //           213-221
+      "Subkutanöz ve Endemik Mikozlar", //        222-230
+      "Fırsatçı Mikozlar", //                     231-253
+      "Antifungal İlaçlar", //                    254-259
+      // Parazitoloji
+      "Kan ve Doku Protozoonları", //             260-275
+      "Gastrointestinal ve Ürogenital Protozoonlar", // 276-285
+      "Sestodlar", //                             286-292
+      "Trematodlar", //                           293-298
+      "Nematodlar", //                            299-307
+      // Viroloji
+      "Genel Viroloji", //                        308-312
+      "Herpesvirüsler", //                        313-340
+      "Poks, Papova, Adeno ve Parvovirüsler", //  341-353
+      "Ortomikso ve Paramiksovirüsler", //        354-367
+      "Diğer RNA Virüsleri", //                   368-386 (Bunya, Rabdo, Pikorna, Calici, Reo, Corona, Toga, Flavi)
+      "HIV ve Retrovirüsler", //                  387-398
+      "Hepatit Virüsleri", //                     399-415
+      "Antiviral Tedavi", //                      416-417
+      // Temel İmmünoloji
+      "İmmün Sistem Organları, Hücreleri ve Sitokinler", // 418-444
+      "Antijen, Antikor ve Kompleman", //         445-453
+      "MHC ve Bağışık Yanıt", //                  454-457
+      "Aşırı Duyarlılık ve Diğer İmmünoloji Konuları", // 458-464
     ],
   },
   {
