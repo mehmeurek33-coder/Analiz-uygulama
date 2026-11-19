@@ -15,6 +15,7 @@ import {
 } from "@/lib/analiz";
 import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
 import type { Deneme, SoruSeti } from "@/lib/tipler";
+import { pdfYuklemeAcik } from "@/lib/ozellikler";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ export default async function Panel() {
   if (!user) return null;
 
   const supabase = await sunucuIstemcisi();
+  const yuklemeAcik = pdfYuklemeAcik();
   const baslangic = donemBaslangici("hafta")!;
   const onceki = oncekiDonemAraligi("hafta")!;
 
@@ -104,10 +106,16 @@ export default async function Panel() {
         {toplamSoru === 0 && (
           <p className="mt-3 rounded-xl border border-orta/40 bg-orta/10 px-3 py-2 text-sm text-orta">
             Havuzda henüz soru yok.{" "}
-            <Link href="/yukle" className="underline">
-              Bir soru PDF&apos;i yükle
-            </Link>
-            .
+            {yuklemeAcik ? (
+              <>
+                <Link href="/yukle" className="underline">
+                  Bir soru PDF&apos;i yükle
+                </Link>
+                .
+              </>
+            ) : (
+              "Soru PDF'lerini Claude'a gönder, sorular buraya eklenecek."
+            )}
           </p>
         )}
       </section>
@@ -128,9 +136,11 @@ export default async function Panel() {
       <section className="kart">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="font-semibold">Soru setlerim</h2>
-          <Link href="/yukle" className="text-sm text-vurgu hover:underline">
-            + PDF yükle
-          </Link>
+          {yuklemeAcik && (
+            <Link href="/yukle" className="text-sm text-vurgu hover:underline">
+              + PDF yükle
+            </Link>
+          )}
         </div>
         {setler.length === 0 ? (
           <p className="ince">Henüz set yok.</p>

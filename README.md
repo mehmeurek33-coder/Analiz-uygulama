@@ -23,7 +23,21 @@ Değiştirmek istersen tek dosya: `src/lib/mufredat.ts`.
 
 ---
 
-## Nasıl çalışır?
+## Soruları ekleme: iki yol
+
+**1. Claude ile (varsayılan, API anahtarı gerekmez).** Soru PDF'ini Claude Code oturumuna
+gönderirsin; Claude soruları birebir çıkarır, TUSDATA müfredatına göre etiketler ve
+`scripts/soru-ekle.ts` ile doğrudan veritabanına ekler. Ayrıştırma Claude aboneliğinden gider,
+API faturası çıkmaz. Yöntemin tamamı ve analiz sorguları `CLAUDE.md` içinde; yeni bir oturum da
+aynı kuralları uygular.
+
+**2. Uygulama içinden (isteğe bağlı).** `ANTHROPIC_API_KEY` tanımlarsan menüde "PDF Yükle"
+çıkar ve PDF'i kendin yüklersin. Kullandıkça ödersin (aşağıda maliyet). Anahtar yoksa bu ekran
+gizlenir.
+
+Çözme, sonuç ve analiz ekranları iki yolda da aynıdır ve hiç token harcamaz.
+
+## Uygulama içi yükleme nasıl çalışır?
 
 | Adım | Ne olur |
 |---|---|
@@ -34,7 +48,7 @@ Değiştirmek istersen tek dosya: `src/lib/mufredat.ts`.
 | 5. Sonuç | Doğru/yanlış/boş, net, konu dağılımı ve soru soru inceleme. |
 | 6. Analiz | Gün/hafta/ay filtreli trend grafiği, ders ve konu kırılımı, "eksik olduğun konular" listesi. O konulardan tek tuşla yeni deneme başlatılır. |
 
-### Analiz ekranında ne var?
+## Analiz ekranında ne var?
 
 - **Dönem karşılaştırması** — "%60 doğru · ▲ +11 puan geçen haftaya göre"
 - **Önce şunlara çalış** — en çok soru kaybettiğin 3 konu, her biri için duruma göre somut
@@ -69,16 +83,17 @@ Değiştirmek istersen tek dosya: `src/lib/mufredat.ts`.
    - `anon public` anahtarı
    - `service_role` anahtarı (**gizli**, sadece sunucuda kullanılır)
 
-### 2) Anthropic API anahtarı al
+### 2) (İsteğe bağlı) Anthropic API anahtarı
 
-Claude aboneliği ile API faturası **ayrıdır**, bu yüzden ayrı bir anahtar gerekir:
+Yalnızca uygulama içinden PDF yüklemek istersen gerekir; soruları Claude ile ekliyorsan bu adımı
+atla. Claude aboneliği ile API faturası **ayrıdır**:
 
 1. [console.anthropic.com](https://console.anthropic.com) → hesabınla giriş yap
 2. **Billing** → kredi kartı ekle / kredi yükle (başlangıç için 5-10 $ fazlasıyla yeter)
 3. **API Keys** → **Create Key** → anahtarı kopyala (`sk-ant-...`), bir daha gösterilmez
 
 **Maliyet:** varsayılan model `claude-opus-5-5` ($4 / 1M girdi, $20 / 1M çıktı token).
-40 sayfalık bir soru kitapçığı yaklaşık **0,5-1 $** tutar. Ucuzlatmak istersen
+Kabaca sayfa başına 2-3 sent; 40 sayfalık bir kitapçık yaklaşık **1-1,5 $** tutar. Ucuzlatmak istersen
 `ANTHROPIC_MODEL=claude-sonnet-5-5` yazman yeterli (yaklaşık yarı fiyat).
 Ayrıştırma **bir kez** yapılır; çözme ve analiz hiç token harcamaz.
 
@@ -96,8 +111,8 @@ npm run dev                    # http://localhost:3000
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
-ANTHROPIC_API_KEY=sk-ant-...
 SAHIP_EPOSTA=sen@ornek.com
+# ANTHROPIC_API_KEY=sk-ant-...   (isteğe bağlı: uygulama içi PDF yükleme)
 ```
 
 `SAHIP_EPOSTA` isteğe bağlıdır. Yazarsan, ilk kurulumda hesap **yalnızca o adresle** açılabilir;
@@ -135,6 +150,8 @@ src/app/api/deneme/[id]/bitir  puanlama — doğru cevaplar sadece burada açıl
 src/app/deneme/[id]          çözme ekranı
 src/app/sonuc/[id]           sonuç ve soru soru inceleme
 src/app/analiz               günlük / haftalık / aylık analiz
+scripts/soru-ekle.ts         Claude'un çıkardığı soruları veritabanına ekleyen araç
+CLAUDE.md                    Claude için yöntem: PDF aktarma kuralları, analiz sorguları
 ```
 
 ## Güvenlik

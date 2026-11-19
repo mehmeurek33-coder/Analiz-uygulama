@@ -6,3 +6,8 @@ out
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+
+# Soru kitaplari telif kapsaminda, repo herkese acik: PDF ve soru aktarma dosyalari asla commit edilmez
+*.pdf
+sorular-*.json
+istek*.json

@@ -3,6 +3,7 @@ import Link from "next/link";
 import "./globals.css";
 import { oturumKullanicisi } from "@/lib/supabase/server";
 import CikisDugmesi from "@/components/CikisDugmesi";
+import { pdfYuklemeAcik } from "@/lib/ozellikler";
 
 export const metadata: Metadata = {
   title: "Soru Analiz",
@@ -24,6 +25,7 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await oturumKullanicisi();
+  const yuklemeAcik = pdfYuklemeAcik();
 
   return (
     <html lang="tr">
@@ -37,9 +39,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 </span>
                 <span className="hidden sm:inline">Soru Analiz</span>
               </Link>
-              <Link href="/yukle" className="rounded-lg px-3 py-2 text-sm hover:bg-kart">
-                PDF Yükle
-              </Link>
+              {yuklemeAcik && (
+                <Link href="/yukle" className="rounded-lg px-3 py-2 text-sm hover:bg-kart">
+                  PDF Yükle
+                </Link>
+              )}
               <Link href="/analiz" className="rounded-lg px-3 py-2 text-sm hover:bg-kart">
                 Analiz
               </Link>
