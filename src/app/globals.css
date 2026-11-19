@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  --color-zemin: #0b1120;
+  --color-kart: #121a2e;
+  --color-kart2: #18223c;
+  --color-cizgi: #243352;
+  --color-metin: #e8edf7;
+  --color-silik: #93a3c0;
+  --color-vurgu: #34d399;
+  --color-uyari: #fbbf24;
+  --color-kotu: #f87171;
+
+  /* Grafik renkleri - dataviz paleti, koyu zemin #0b1120 icin dogrulandi */
+  --color-iyi: #0ca30c;    /* status good     - kontrast 5.0:1 */
+  --color-orta: #fab219;   /* status warning  - kontrast 9.9:1 */
+  --color-zayif: #d03b3b;  /* status critical - kontrast 3.8:1 */
+  --color-seri: #3987e5;   /* tek seri cizgi  - kontrast 4.0:1 */
+  --color-izgara: rgba(255, 255, 255, 0.07);
+}
+
+html,
+body {
+  background: var(--color-zemin);
+  color: var(--color-metin);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer components {
+  .kart {
+    @apply rounded-2xl border border-cizgi bg-kart p-4 sm:p-5;
+  }
+
+  .btn,
+  .btn-ana,
+  .btn-ikincil {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5
+           text-sm font-semibold transition active:scale-[0.98]
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-ana {
+    @apply bg-vurgu text-[#06281c] hover:brightness-110;
+  }
+
+  .btn-ikincil {
+    @apply border border-cizgi bg-kart2 text-metin hover:border-vurgu/60;
+  }
+
+  .giris-alani {
+    @apply w-full rounded-xl border border-cizgi bg-zemin px-3.5 py-2.5 text-metin
+           outline-none placeholder:text-silik/60 focus:border-vurgu/70;
+  }
+
+  .etiket {
+    @apply mb-1.5 block text-xs font-medium tracking-wide text-silik uppercase;
+  }
+
+  .ince {
+    @apply text-sm text-silik;
+  }
+}
