@@ -55,8 +55,12 @@ Değiştirmek istersen tek dosya: `src/lib/mufredat.ts`.
 3. Proje açılınca sol menüden **SQL Editor** → **New query** → `supabase/schema.sql` dosyasının
    tamamını yapıştır → **Run**. (Tabloları, güvenlik kurallarını, PDF kovasını ve analiz
    görünümünü kurar. Tekrar çalıştırmak zararsızdır.)
-4. **Authentication → Sign In / Providers → Email** → **"Confirm email" seçeneğini KAPAT.**
-   Böylece kimseye doğrulama maili gitmez, hesaplar anında açılır.
+4. **Authentication → Sign In / Providers**:
+   - **"Confirm email" KAPALI** olsun → kimseye doğrulama maili gitmez, hesaplar anında açılır.
+   - **"Allow new users to sign up" KAPALI** olsun → bu önemli: `anon` anahtarı tarayıcıya
+     gittiği için, açık bırakılırsa herkes doğrudan Supabase'e kayıt olup `IZINLI_EPOSTALAR`
+     listesini atlayabilir. Kapalıyken hesaplar yalnızca uygulamanın kendi `/api/kayit` ucundan
+     (service_role ile, izin listesi kontrol edilerek) açılır.
 5. **Project Settings → API** sayfasından şunları kopyala:
    - `Project URL`
    - `anon public` anahtarı
@@ -129,6 +133,8 @@ src/app/analiz               günlük / haftalık / aylık analiz
 - Her tablo **RLS** ile korunur: herkes yalnızca kendi setini, sorusunu, cevabını görür.
 - PDF kovası özeldir; dosyalar `<kullanıcı-id>/...` klasörüne yazılır, başkası okuyamaz.
 - `service_role` anahtarı yalnızca sunucu tarafında kullanılır, tarayıcıya hiç gitmez.
+- Supabase'de genel kayıt kapalıdır; hesap açmanın tek yolu izin listesini kontrol eden
+  `/api/kayit` ucudur.
 
 ## Bilinen sınırlar
 
