@@ -19,6 +19,19 @@ TUS müfredatı hazır gelir (Anatomi, Fizyoloji, Farmakoloji, Dahiliye, Pediatr
 | 5. Sonuç | Doğru/yanlış/boş, net, konu dağılımı ve soru soru inceleme. |
 | 6. Analiz | Gün/hafta/ay filtreli trend grafiği, ders ve konu kırılımı, "eksik olduğun konular" listesi. O konulardan tek tuşla yeni deneme başlatılır. |
 
+### Analiz ekranında ne var?
+
+- **Dönem karşılaştırması** — "%60 doğru · ▲ +11 puan geçen haftaya göre"
+- **Önce şunlara çalış** — en çok soru kaybettiğin 3 konu, her biri için duruma göre somut
+  tavsiye (boş bıraktıysan "önce tekrar et", çeldiriciye düştüysen "yanlışlarının çözümünü oku")
+  ve o konudan tek tuşla 20 soruluk deneme
+- **Günlere göre doğru oranı** — üzerine gelince gün gün değer veren çizgi grafik, tablo görünümü de var
+- **Çalışma takvimi** — son 12 haftanın yoğunluk haritası (GitHub katkı grafiği gibi)
+- **Derslere / konulara göre** — renk + simge + sayı birlikte, renk körlüğünde de okunur
+- **En çok vakit alan konular** — soru başına ortalama süre
+- **Etiket düzeltme** — Claude bir soruyu yanlış derse koyduysa ya da cevap anahtarı eksikse
+  sonuç ekranından düzeltirsin; anahtar değişirse geçmiş cevaplar **yeniden puanlanır**
+
 ---
 
 ## Kurulum
@@ -77,7 +90,9 @@ hesap açabilir. (Kayıt, sunucu tarafında bu listeye bakılarak yapılır.)
 2. **Environment Variables** bölümüne yukarıdaki 5 değişkeni ekle
 3. **Deploy**
 
-Telefondan açıp ana ekrana ekleyebilirsin; arayüz mobil öncelikli tasarlandı.
+Telefondan açıp **ana ekrana ekle** dersen uygulama gibi tam ekran açılır (PWA olarak kuruldu:
+ikon, tema rengi ve manifest hazır). Arayüz mobil öncelikli tasarlandı; bilgisayarda çözerken
+**A-E tuşlarıyla şık işaretleyip ok tuşlarıyla** soru değiştirebilirsin.
 
 ---
 

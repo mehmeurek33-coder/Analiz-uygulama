@@ -3,7 +3,16 @@ import BandAciklama from "@/components/BandAciklama";
 import DenemeBaslat from "@/components/DenemeBaslat";
 import IstatistikKarti from "@/components/IstatistikKarti";
 import KonuMetre from "@/components/KonuMetre";
-import { donemBaslangici, konulariTopla, ozetle, yuzde, type PerfSatiri } from "@/lib/analiz";
+import {
+  donemBaslangici,
+  fark,
+  konulariTopla,
+  oncekiDonemAraligi,
+  ozetle,
+  sureleriOzetle,
+  yuzde,
+  type PerfSatiri,
+} from "@/lib/analiz";
 import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
 import type { Deneme, SoruSeti } from "@/lib/tipler";
 
@@ -15,8 +24,9 @@ export default async function Panel() {
 
   const supabase = await sunucuIstemcisi();
   const baslangic = donemBaslangici("hafta")!;
+  const onceki = oncekiDonemAraligi("hafta")!;
 
-  const [setlerQ, denemelerQ, perfQ, soruSayisiQ] = await Promise.all([
+  const [setlerQ, denemelerQ, perfQ, soruSayisiQ, oncekiQ] = await Promise.all([
     supabase
       .from("soru_setleri")
       .select("*")
@@ -29,6 +39,11 @@ export default async function Panel() {
       .limit(6),
     supabase.from("v_konu_performans").select("*").gte("gun", baslangic),
     supabase.from("sorular").select("id", { count: "exact", head: true }),
+    supabase
+      .from("v_konu_performans")
+      .select("toplam, dogru")
+      .gte("gun", onceki.bas)
+      .lte("gun", onceki.son),
   ]);
 
   const setler = (setlerQ.data ?? []) as SoruSeti[];
@@ -37,6 +52,9 @@ export default async function Panel() {
   const toplamSoru = soruSayisiQ.count ?? 0;
 
   const ozet = ozetle(perf);
+  const oncekiOzet = ozetle((oncekiQ.data ?? []) as PerfSatiri[]);
+  const sure = sureleriOzetle(perf);
+  const oranFarki = oncekiOzet.toplam > 0 && ozet.toplam > 0 ? fark(ozet.oran, oncekiOzet.oran) : null;
   const konular = konulariTopla(perf);
   const zayiflar = konular.filter((k) => k.toplam >= 2).slice(0, 5);
 
@@ -48,7 +66,12 @@ export default async function Panel() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <IstatistikKarti baslik="Çözülen soru" deger={ozet.toplam} alt="son 7 gün" />
+        <IstatistikKarti
+          baslik="Çözülen soru"
+          deger={ozet.toplam}
+          alt="son 7 gün"
+          sureSn={sure.ortalamaSn}
+        />
         <IstatistikKarti
           baslik="Doğru oranı"
           deger={ozet.toplam ? yuzde(ozet.oran) : "-"}

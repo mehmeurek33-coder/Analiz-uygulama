@@ -51,6 +51,32 @@ export default function CozumEkrani({
     soruBaslangici.current = Date.now();
   }, [aktif]);
 
+  // Klavye kısayolları: A-E şık seçer, ok tuşları gezinir
+  useEffect(() => {
+    function tus(e: KeyboardEvent) {
+      const hedef = e.target as HTMLElement | null;
+      if (hedef && ["INPUT", "TEXTAREA", "SELECT"].includes(hedef.tagName)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const harf = e.key.toUpperCase();
+      if (["A", "B", "C", "D", "E"].includes(harf) && soru.secenekler[harf] !== undefined) {
+        e.preventDefault();
+        void isaretle(harf);
+        return;
+      }
+      if (e.key === "ArrowRight" || e.key === "Enter") {
+        e.preventDefault();
+        setAktif((a) => Math.min(sorular.length - 1, a + 1));
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setAktif((a) => Math.max(0, a - 1));
+      }
+    }
+    window.addEventListener("keydown", tus);
+    return () => window.removeEventListener("keydown", tus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aktif, cevaplar, sureler]);
+
   const isaretli = useMemo(
     () => Object.values(cevaplar).filter(Boolean).length,
     [cevaplar],
@@ -106,6 +132,14 @@ export default function CozumEkrani({
         <button type="button" className="btn-ikincil" onClick={() => setOnay(true)}>
           Testi bitir
         </button>
+      </div>
+
+      {/* İlerleme */}
+      <div className="h-1.5 w-full overflow-hidden rounded-[4px] bg-kart">
+        <div
+          className="h-full rounded-[4px] bg-vurgu transition-all"
+          style={{ width: `${(isaretli / sorular.length) * 100}%` }}
+        />
       </div>
 
       {/* Soru haritasi */}
@@ -206,6 +240,12 @@ export default function CozumEkrani({
 
       <p className="text-center text-xs text-silik">
         Doğru cevaplar test bitene kadar gösterilmez.
+        <span className="hidden sm:inline">
+          {" "}
+          · Klavye: <kbd className="rounded bg-kart2 px-1">A-E</kbd> şık,{" "}
+          <kbd className="rounded bg-kart2 px-1">←</kbd>{" "}
+          <kbd className="rounded bg-kart2 px-1">→</kbd> gezinme
+        </span>
       </p>
 
       {/* Onay */}

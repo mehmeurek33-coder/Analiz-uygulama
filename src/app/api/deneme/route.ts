@@ -5,9 +5,11 @@ export const maxDuration = 60;
 
 type Govde = {
   setId?: string | null;
-  mod?: "tumu" | "rastgele" | "zayif" | "yanlis";
+  mod?: "tumu" | "rastgele" | "zayif" | "yanlis" | "konu";
   adet?: number;
   ad?: string;
+  ders?: string;
+  konu?: string;
 };
 
 /** Yeni deneme olusturur ve icine girecek sorulari secer. */
@@ -15,13 +17,26 @@ export async function POST(request: Request) {
   const user = await oturumKullanicisi();
   if (!user) return NextResponse.json({ hata: "Oturum yok." }, { status: 401 });
 
-  const { setId = null, mod = "tumu", adet = 20, ad }: Govde = await request.json();
+  const { setId = null, mod = "tumu", adet = 20, ad, ders, konu }: Govde = await request.json();
   const supabase = await sunucuIstemcisi();
   const limit = Math.max(1, Math.min(200, Number(adet) || 20));
 
   let soruIdleri: string[] = [];
 
-  if (mod === "yanlis") {
+  if (mod === "konu") {
+    // Tek bir ders/konudan deneme
+    if (!ders || !konu) {
+      return NextResponse.json({ hata: "Ders ve konu gerekli." }, { status: 400 });
+    }
+    const { data } = await supabase
+      .from("sorular")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("ders", ders)
+      .eq("konu", konu)
+      .limit(500);
+    soruIdleri = karistir((data ?? []).map((s) => s.id)).slice(0, limit);
+  } else if (mod === "yanlis") {
     // Daha once yanlis cevaplanmis sorular
     const { data } = await supabase
       .from("cevaplar")
@@ -88,7 +103,7 @@ export async function POST(request: Request) {
     .insert({
       user_id: user.id,
       set_id: setId,
-      ad: (ad || varsayilanAd(mod)).slice(0, 120),
+      ad: (ad || (mod === "konu" && konu ? `${konu} - ${bugunMetni()}` : varsayilanAd(mod))).slice(0, 120),
       soru_sayisi: soruIdleri.length,
     })
     .select("id")
@@ -123,9 +138,14 @@ function karistir<T>(dizi: T[]): T[] {
   return d;
 }
 
+function bugunMetni() {
+  return new Date().toLocaleDateString("tr-TR", { day: "2-digit", month: "long" });
+}
+
 function varsayilanAd(mod: string) {
-  const tarih = new Date().toLocaleDateString("tr-TR", { day: "2-digit", month: "long" });
+  const tarih = bugunMetni();
   const adlar: Record<string, string> = {
+    konu: "Konu denemesi",
     tumu: "Set denemesi",
     rastgele: "Rastgele deneme",
     zayif: "Zayıf konu denemesi",

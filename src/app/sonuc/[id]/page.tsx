@@ -44,6 +44,7 @@ export default async function SonucPage({ params }: { params: Promise<{ id: stri
     };
     return {
       id: s.id,
+      soruId: s.soru_id,
       sira: s.sira,
       isaretlenen: s.isaretlenen,
       dogru: s.dogru,

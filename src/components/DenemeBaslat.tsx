@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-type Mod = "rastgele" | "zayif" | "yanlis" | "tumu";
+type Mod = "rastgele" | "zayif" | "yanlis" | "tumu" | "konu";
 
 export default function DenemeBaslat({
   mod,
@@ -12,6 +12,9 @@ export default function DenemeBaslat({
   etiket,
   aciklama,
   ikincil = false,
+  ders,
+  konu,
+  kucuk = false,
 }: {
   mod: Mod;
   setId?: string;
@@ -19,6 +22,9 @@ export default function DenemeBaslat({
   etiket: string;
   aciklama?: string;
   ikincil?: boolean;
+  ders?: string;
+  konu?: string;
+  kucuk?: boolean;
 }) {
   const router = useRouter();
   const [bekle, setBekle] = useState(false);
@@ -31,7 +37,7 @@ export default function DenemeBaslat({
       const cevap = await fetch("/api/deneme", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mod, setId: setId ?? null, adet: adet ?? 20 }),
+        body: JSON.stringify({ mod, setId: setId ?? null, adet: adet ?? 20, ders, konu }),
       });
       const veri = await cevap.json();
       if (!cevap.ok) throw new Error(veri.hata || "Deneme başlatılamadı.");
@@ -48,7 +54,7 @@ export default function DenemeBaslat({
         type="button"
         onClick={basla}
         disabled={bekle}
-        className={ikincil ? "btn-ikincil w-full" : "btn-ana w-full"}
+        className={`${ikincil ? "btn-ikincil" : "btn-ana"} ${kucuk ? "px-3 py-1.5 text-xs" : "w-full"}`}
       >
         {bekle ? "Hazırlanıyor..." : etiket}
       </button>

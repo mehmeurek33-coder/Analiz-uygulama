@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import SoruDuzelt from "@/components/SoruDuzelt";
 
 export type SonucSatiri = {
   id: string;
+  soruId: string;
   sira: number;
   isaretlenen: string | null;
   dogru: boolean | null;
@@ -119,6 +121,16 @@ export default function SonucListesi({ satirlar }: { satirlar: SonucSatiri[] }) 
                     );
                   })}
               </ul>
+
+              <div className="mt-3">
+                <SoruDuzelt
+                  soruId={s.soruId}
+                  ders={s.ders}
+                  konu={s.konu}
+                  dogruCevap={s.dogruCevap}
+                  secenekHarfleri={Object.keys(s.secenekler).sort()}
+                />
+              </div>
 
               {s.aciklama && (
                 <p className="mt-3 rounded-lg border border-cizgi bg-kart2 px-3 py-2 text-sm text-silik">

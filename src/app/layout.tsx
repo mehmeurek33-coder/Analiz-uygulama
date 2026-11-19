@@ -6,7 +6,14 @@ import CikisDugmesi from "@/components/CikisDugmesi";
 
 export const metadata: Metadata = {
   title: "Soru Analiz",
-  description: "PDF soru bankalarini coz, eksik konularini gor.",
+  description: "Soru PDF'lerini çöz, hangi dersin hangi konusunda eksiğin olduğunu gör.",
+  manifest: "/manifest.webmanifest",
+  applicationName: "Soru Analiz",
+  appleWebApp: { capable: true, title: "Soru Analiz", statusBarStyle: "black-translucent" },
+  icons: {
+    icon: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {

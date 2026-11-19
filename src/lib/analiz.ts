@@ -33,6 +33,23 @@ export function donemBaslangici(donem: Donem): string | null {
 
 export type Ozet = { toplam: number; dogru: number; yanlis: number; bos: number; oran: number };
 
+/** Onceki esit uzunluktaki donemin tarih araligi (karsilastirma icin). */
+export function oncekiDonemAraligi(donem: Donem): { bas: string; son: string } | null {
+  if (donem === "tum") return null;
+  const gunSayisi = donem === "gun" ? 1 : donem === "hafta" ? 7 : 30;
+  const son = new Date();
+  son.setHours(0, 0, 0, 0);
+  son.setDate(son.getDate() - gunSayisi);
+  const bas = new Date(son);
+  bas.setDate(bas.getDate() - (gunSayisi - 1));
+  return { bas: bas.toISOString().slice(0, 10), son: son.toISOString().slice(0, 10) };
+}
+
+/** Iki oran arasindaki farki yuzde puani olarak dondurur. */
+export function fark(simdi: number, onceki: number): number {
+  return Math.round((simdi - onceki) * 100);
+}
+
 export function ozetle(satirlar: PerfSatiri[]): Ozet {
   const o = satirlar.reduce(
     (a, s) => ({
@@ -90,6 +107,48 @@ export function dersleriTopla(satirlar: PerfSatiri[]) {
     .sort((a, b) => a.oran - b.oran);
 }
 
+export type SureOzeti = {
+  ortalamaSn: number;
+  enYavaslar: { anahtar: string; ders: string; konu: string; ortSn: number; toplam: number }[];
+};
+
+/** Soru basina sure ortalamasi ve en yavas konular. */
+export function sureleriOzetle(satirlar: PerfSatiri[]): SureOzeti {
+  let agirlikliToplam = 0;
+  let soruSayisi = 0;
+  const harita = new Map<string, { ders: string; konu: string; sn: number; adet: number }>();
+
+  for (const s of satirlar) {
+    const sure = Number(s.ort_sure_sn ?? 0);
+    const adet = Number(s.toplam) || 0;
+    if (!sure || !adet) continue;
+    agirlikliToplam += sure * adet;
+    soruSayisi += adet;
+    const anahtar = `${s.ders} / ${s.konu}`;
+    const k = harita.get(anahtar) ?? { ders: s.ders, konu: s.konu, sn: 0, adet: 0 };
+    k.sn += sure * adet;
+    k.adet += adet;
+    harita.set(anahtar, k);
+  }
+
+  const enYavaslar = [...harita.entries()]
+    .map(([anahtar, k]) => ({
+      anahtar,
+      ders: k.ders,
+      konu: k.konu,
+      ortSn: Math.round(k.sn / k.adet),
+      toplam: k.adet,
+    }))
+    .filter((k) => k.toplam >= 2)
+    .sort((a, b) => b.ortSn - a.ortSn)
+    .slice(0, 5);
+
+  return {
+    ortalamaSn: soruSayisi ? Math.round(agirlikliToplam / soruSayisi) : 0,
+    enYavaslar,
+  };
+}
+
 export type GunNoktasi = { gun: string; toplam: number; dogru: number; oran: number };
 
 /** Gun gun dogru oranini dondurur (eskiden yeniye). */
@@ -121,6 +180,41 @@ export const BAND_BILGI = {
 
 export function yuzde(oran: number) {
   return `${Math.round(oran * 100)}%`;
+}
+
+/** Saniyeyi "1 dk 20 sn" gibi okunur hale getirir. */
+export function sureMetni(sn: number) {
+  if (!sn) return "-";
+  if (sn < 60) return `${sn} sn`;
+  const dk = Math.floor(sn / 60);
+  const kalan = sn % 60;
+  return kalan ? `${dk} dk ${kalan} sn` : `${dk} dk`;
+}
+
+/** Aktivite takvimi icin son N gunun soru sayilari (eskiden yeniye). */
+export function aktiviteGunleri(
+  satirlar: PerfSatiri[],
+  gunSayisi = 84,
+): { gun: string; toplam: number; dogru: number }[] {
+  const harita = new Map<string, { toplam: number; dogru: number }>();
+  for (const s of satirlar) {
+    const g = harita.get(s.gun) ?? { toplam: 0, dogru: 0 };
+    g.toplam += Number(s.toplam);
+    g.dogru += Number(s.dogru);
+    harita.set(s.gun, g);
+  }
+
+  const bugun = new Date();
+  bugun.setHours(0, 0, 0, 0);
+  const gunler: { gun: string; toplam: number; dogru: number }[] = [];
+  for (let i = gunSayisi - 1; i >= 0; i--) {
+    const d = new Date(bugun);
+    d.setDate(d.getDate() - i);
+    const iso = d.toISOString().slice(0, 10);
+    const v = harita.get(iso);
+    gunler.push({ gun: iso, toplam: v?.toplam ?? 0, dogru: v?.dogru ?? 0 });
+  }
+  return gunler;
 }
 
 export function gunAdi(iso: string) {
