@@ -46,6 +46,16 @@ KURALLAR
 - Şekil/tablo/grafik içeren soruda, kökün sonuna köşeli parantez içinde kısa tarif ekle.
 - ders ve konu alanlarında ASLA yeni isim uydurma; listedeki adları harfi harfine yaz.
   Hiçbiri uymuyorsa ders alanına en yakın dersi, konu alanına "Belirsiz" yaz.
+- Müfredat TUSDATA'nın 11 branş yapısıdır. Dikkat:
+  * Nöroloji, Psikiyatri, Dermatoloji, Göz, KBB, Ortopedi, Üroloji, Radyoloji,
+    Halk Sağlığı, Adli Tıp gibi branşlar AYRI DERS DEĞİLDİR; ders "Küçük Stajlar",
+    konu o branşın adıdır (örn. ders: Küçük Stajlar, konu: Nöroloji).
+  * İç Hastalıkları = Dahiliye. Çocuk Sağlığı ve Hastalıkları = Pediatri.
+  * Histoloji ve embriyoloji soruları Anatomi branşındadır.
+  * Tıbbi genetik ve moleküler biyoloji soruları Biyokimya branşındadır.
+  * İmmünoloji soruları Mikrobiyoloji branşındadır.
+- alt_konu alanına daha ince başlığı yaz (örn. ders: Küçük Stajlar, konu: Nöroloji,
+  alt_konu: "Epilepsi").
 - Cevap anahtarı sana ayrıca verilebilir; verilmediyse ve PDF'te de yoksa dogru_cevap boş kalsın.
 - aciklama alanına doğru cevabın tek cümlelik gerekçesini yaz; emin değilsen boş bırak.
 

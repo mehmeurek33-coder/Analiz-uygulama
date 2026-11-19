@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     const satirlar = cikan
       .filter((s) => s.metin?.trim() && s.secenekler?.length >= 2)
       .map((s, i) => {
-        const { ders, konu } = konuOturt(s.ders, s.konu);
+        const { ders, konu, altKonu } = konuOturt(s.ders, s.konu);
         const secenekler: Record<string, string> = {};
         for (const sec of s.secenekler) {
           const harf = (sec.harf || "").trim().toUpperCase().slice(0, 1);
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
           dogru_cevap: anahtardan || (/^[A-E]$/.test(modelden) ? modelden : null),
           ders,
           konu,
-          alt_konu: s.alt_konu?.trim() || null,
+          alt_konu: s.alt_konu?.trim() || altKonu || null,
           zorluk,
           aciklama: s.aciklama?.trim() || null,
         };

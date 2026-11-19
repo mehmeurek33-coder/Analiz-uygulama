@@ -4,7 +4,19 @@ Soru PDF'lerini yükle → Claude soruları tek tek ayırıp **ders/konu** etike
 (doğru-yanlış test bitene kadar gizli) → **günlük / haftalık / aylık** analizde hangi dersin hangi
 konusunda eksik olduğunu gör.
 
-TUS müfredatı hazır gelir (Anatomi, Fizyoloji, Farmakoloji, Dahiliye, Pediatri, Küçük Stajlar...).
+Müfredat **TUSDATA'nın 11 branş yapısına** göre hazır gelir:
+
+| Temel Bilimler (6 branş) | Klinik Bilimler (5 branş) |
+|---|---|
+| Anatomi, Fizyoloji, Biyokimya, Mikrobiyoloji, Patoloji, Farmakoloji | Dahiliye, Pediatri, Genel Cerrahi, Kadın Doğum, Küçük Stajlar |
+
+Toplam 191 konu başlığı. Histoloji-embriyoloji Anatomi'nin, tıbbi genetik ve moleküler
+biyoloji Biyokimya'nın, immünoloji Mikrobiyoloji'nin altında konu olarak yer alır; Nöroloji,
+Psikiyatri, Dermatoloji, Göz, KBB, Ortopedi, Üroloji gibi branşlar **Küçük Stajlar**ın konularıdır
+(TUSDATA'nın kendi ayrımı). Claude bir soruyu "Nöroloji" dersi diye etiketlemeye kalkarsa
+otomatik olarak Küçük Stajlar → Nöroloji'ye çekilir, kaybolan başlık alt konu olarak saklanır.
+
+Değiştirmek istersen tek dosya: `src/lib/mufredat.ts`.
 
 ---
 
