@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
-import { yoneticiIstemcisi } from "@/lib/supabase/admin";
+import { hesapVarMi, yoneticiIstemcisi } from "@/lib/supabase/admin";
 
 /**
- * Kayit, e-posta dogrulamasi olmadan sunucu tarafinda yapilir.
- * Boylece kimse davetsiz kayit olamaz ve kimseye dogrulama maili gitmez.
+ * İLK KURULUM: Uygulama tek kişiliktir. Bu uç yalnızca henüz hiç hesap yokken
+ * çalışır; ilk hesap oluşturulduktan sonra kalıcı olarak 403 döner.
+ *
+ * İsteğe bağlı SAHIP_EPOSTA tanımlıysa, ilk hesap yalnızca o adresle açılabilir
+ * (yayına aldıktan sonra hesabını açana kadar başkasının araya girmesini önler).
  */
 export async function POST(request: Request) {
   let eposta = "";
@@ -18,39 +21,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ hata: "Geçersiz istek." }, { status: 400 });
   }
 
+  if (await hesapVarMi()) {
+    return NextResponse.json(
+      { hata: "Bu uygulama tek kişilik ve hesap zaten oluşturulmuş. Giriş yap." },
+      { status: 403 },
+    );
+  }
+
   if (!eposta.includes("@")) {
-    return NextResponse.json({ hata: "Geçerli bir e-posta girin." }, { status: 400 });
+    return NextResponse.json({ hata: "Geçerli bir e-posta gir." }, { status: 400 });
   }
   if (sifre.length < 8) {
     return NextResponse.json({ hata: "Şifre en az 8 karakter olmalı." }, { status: 400 });
   }
 
-  const izinli = (process.env.IZINLI_EPOSTALAR || "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  if (izinli.length > 0 && !izinli.includes(eposta)) {
+  const sahip = (process.env.SAHIP_EPOSTA || "").trim().toLowerCase();
+  if (sahip && eposta !== sahip) {
     return NextResponse.json(
-      { hata: "Bu e-posta ile kayıt yetkiniz yok. Uygulama sahibinden izin isteyin." },
+      { hata: "Bu uygulamanın hesabı yalnızca sahibinin e-postasıyla açılabilir." },
       { status: 403 },
     );
   }
 
-  const admin = yoneticiIstemcisi();
-  const { error } = await admin.auth.admin.createUser({
+  const { error } = await yoneticiIstemcisi().auth.admin.createUser({
     email: eposta,
     password: sifre,
     email_confirm: true,
     user_metadata: { ad: ad || eposta.split("@")[0] },
   });
 
-  if (error) {
-    const zaten = /already|registered|exists/i.test(error.message);
-    return NextResponse.json(
-      { hata: zaten ? "Bu e-posta ile zaten bir hesap var, giriş yapın." : error.message },
-      { status: zaten ? 409 : 500 },
-    );
-  }
-
+  if (error) return NextResponse.json({ hata: error.message }, { status: 500 });
   return NextResponse.json({ tamam: true });
 }

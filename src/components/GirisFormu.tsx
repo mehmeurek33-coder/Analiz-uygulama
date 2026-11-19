@@ -4,15 +4,20 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { tarayiciIstemcisi } from "@/lib/supabase/client";
 
-export default function GirisFormu() {
+/**
+ * Tek kişilik uygulama:
+ *  - kurulumGerekli = true  -> henüz hesap yok, tek seferlik hesap oluşturma formu
+ *  - kurulumGerekli = false -> sadece giriş formu (kayıt seçeneği hiç görünmez)
+ */
+export default function GirisFormu({ kurulumGerekli }: { kurulumGerekli: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const devam = params.get("devam") || "/";
 
-  const [kayitMi, setKayitMi] = useState(false);
   const [ad, setAd] = useState("");
   const [eposta, setEposta] = useState("");
   const [sifre, setSifre] = useState("");
+  const [sifreTekrar, setSifreTekrar] = useState("");
   const [hata, setHata] = useState<string | null>(null);
   const [bilgi, setBilgi] = useState<string | null>(null);
   const [bekle, setBekle] = useState(false);
@@ -21,22 +26,29 @@ export default function GirisFormu() {
     e.preventDefault();
     setHata(null);
     setBilgi(null);
-    setBekle(true);
 
+    if (kurulumGerekli && sifre !== sifreTekrar) {
+      setHata("Şifreler aynı değil.");
+      return;
+    }
+
+    setBekle(true);
     try {
-      if (kayitMi) {
+      if (kurulumGerekli) {
         const cevap = await fetch("/api/kayit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ad, eposta, sifre }),
         });
         const veri = await cevap.json();
-        if (!cevap.ok) throw new Error(veri.hata || "Kayıt başarısız.");
-        setBilgi("Hesap oluşturuldu, giris yapiliyor...");
+        if (!cevap.ok) throw new Error(veri.hata || "Hesap oluşturulamadı.");
+        setBilgi("Hesabın oluşturuldu, giriş yapılıyor...");
       }
 
-      const supabase = tarayiciIstemcisi();
-      const { error } = await supabase.auth.signInWithPassword({ email: eposta, password: sifre });
+      const { error } = await tarayiciIstemcisi().auth.signInWithPassword({
+        email: eposta,
+        password: sifre,
+      });
       if (error) throw new Error(cevirHata(error.message));
 
       router.push(devam);
@@ -50,7 +62,17 @@ export default function GirisFormu() {
 
   return (
     <form onSubmit={gonder} className="kart space-y-4">
-      {kayitMi && (
+      {kurulumGerekli && (
+        <div className="rounded-xl border border-vurgu/30 bg-vurgu/10 px-3 py-2.5 text-sm">
+          <p className="font-semibold text-vurgu">Bu uygulama tek kişilik.</p>
+          <p className="mt-0.5 text-silik">
+            Şimdi oluşturacağın hesap uygulamanın tek hesabı olacak. Sonrasında kayıt kalıcı
+            olarak kapanır, sadece sen giriş yapabilirsin.
+          </p>
+        </div>
+      )}
+
+      {kurulumGerekli && (
         <div>
           <label className="etiket" htmlFor="ad">
             Adın
@@ -60,7 +82,7 @@ export default function GirisFormu() {
             className="giris-alani"
             value={ad}
             onChange={(e) => setAd(e.target.value)}
-            placeholder="Mehmet"
+            placeholder="Adın"
             autoComplete="name"
           />
         </div>
@@ -95,9 +117,27 @@ export default function GirisFormu() {
           value={sifre}
           onChange={(e) => setSifre(e.target.value)}
           placeholder="En az 8 karakter"
-          autoComplete={kayitMi ? "new-password" : "current-password"}
+          autoComplete={kurulumGerekli ? "new-password" : "current-password"}
         />
       </div>
+
+      {kurulumGerekli && (
+        <div>
+          <label className="etiket" htmlFor="sifre2">
+            Şifre (tekrar)
+          </label>
+          <input
+            id="sifre2"
+            type="password"
+            required
+            minLength={8}
+            className="giris-alani"
+            value={sifreTekrar}
+            onChange={(e) => setSifreTekrar(e.target.value)}
+            autoComplete="new-password"
+          />
+        </div>
+      )}
 
       {hata && (
         <p className="rounded-xl border border-kotu/40 bg-kotu/10 px-3 py-2 text-sm text-kotu">
@@ -111,18 +151,7 @@ export default function GirisFormu() {
       )}
 
       <button type="submit" className="btn-ana w-full" disabled={bekle}>
-        {bekle ? "Bekle..." : kayitMi ? "Hesap oluştur" : "Giriş yap"}
-      </button>
-
-      <button
-        type="button"
-        className="w-full text-center text-sm text-silik hover:text-metin"
-        onClick={() => {
-          setKayitMi(!kayitMi);
-          setHata(null);
-        }}
-      >
-        {kayitMi ? "Hesabım var, giriş yapacağım" : "Hesabım yok, kayıt olacağım"}
+        {bekle ? "Bekle..." : kurulumGerekli ? "Hesabımı oluştur" : "Giriş yap"}
       </button>
     </form>
   );
@@ -130,7 +159,5 @@ export default function GirisFormu() {
 
 function cevirHata(mesaj: string) {
   if (/invalid login credentials/i.test(mesaj)) return "E-posta veya şifre hatalı.";
-  if (/email not confirmed/i.test(mesaj))
-    return "E-posta doğrulanmamış. Supabase panelinde 'Confirm email' ayarını kapatın.";
   return mesaj;
 }

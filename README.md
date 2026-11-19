@@ -4,6 +4,9 @@ Soru PDF'lerini yükle → Claude soruları tek tek ayırıp **ders/konu** etike
 (doğru-yanlış test bitene kadar gizli) → **günlük / haftalık / aylık** analizde hangi dersin hangi
 konusunda eksik olduğunu gör.
 
+**Tek kişilik uygulama.** İlk açılışta kendi hesabını oluşturursun; sonrasında kayıt kalıcı
+olarak kapanır. API maliyeti yalnızca senin yüklediğin PDF'ler kadar olur.
+
 Müfredat **TUSDATA'nın 11 branş yapısına** göre hazır gelir:
 
 | Temel Bilimler (6 branş) | Klinik Bilimler (5 branş) |
@@ -56,11 +59,11 @@ Değiştirmek istersen tek dosya: `src/lib/mufredat.ts`.
    tamamını yapıştır → **Run**. (Tabloları, güvenlik kurallarını, PDF kovasını ve analiz
    görünümünü kurar. Tekrar çalıştırmak zararsızdır.)
 4. **Authentication → Sign In / Providers**:
-   - **"Confirm email" KAPALI** olsun → kimseye doğrulama maili gitmez, hesaplar anında açılır.
+   - **"Confirm email" KAPALI** olsun → doğrulama maili beklemeden hesabın anında açılır.
    - **"Allow new users to sign up" KAPALI** olsun → bu önemli: `anon` anahtarı tarayıcıya
-     gittiği için, açık bırakılırsa herkes doğrudan Supabase'e kayıt olup `IZINLI_EPOSTALAR`
-     listesini atlayabilir. Kapalıyken hesaplar yalnızca uygulamanın kendi `/api/kayit` ucundan
-     (service_role ile, izin listesi kontrol edilerek) açılır.
+     gittiği için, açık bırakılırsa biri doğrudan Supabase'e kayıt olup uygulamaya girebilir
+     ve senin API kredinle PDF ayrıştırabilir. Kapalıyken tek hesap, uygulamanın ilk kurulum
+     ekranından (`/api/kayit`, yalnızca hiç hesap yokken çalışır) açılır.
 5. **Project Settings → API** sayfasından şunları kopyala:
    - `Project URL`
    - `anon public` anahtarı
@@ -94,17 +97,23 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 ANTHROPIC_API_KEY=sk-ant-...
-IZINLI_EPOSTALAR=sen@ornek.com,arkadas@ornek.com
+SAHIP_EPOSTA=sen@ornek.com
 ```
 
-`IZINLI_EPOSTALAR` boş bırakılırsa herkes kayıt olabilir; e-posta yazarsan **sadece o adresler**
-hesap açabilir. (Kayıt, sunucu tarafında bu listeye bakılarak yapılır.)
+`SAHIP_EPOSTA` isteğe bağlıdır. Yazarsan, ilk kurulumda hesap **yalnızca o adresle** açılabilir;
+yayına aldığın an ile hesabını oluşturduğun an arasında başkasının araya girmesini önler.
+
+### İlk giriş
+
+Uygulamayı ilk açtığında giriş ekranı yerine **"İlk kurulum: kendi hesabını oluştur"** formu
+gelir. Hesabını oluşturduktan sonra bu form bir daha görünmez, `/api/kayit` ucu da kalıcı
+olarak kapanır. Oturum tarayıcıda hatırlanır, sık sık şifre girmen gerekmez.
 
 ### 4) Yayına al (Vercel)
 
 1. [vercel.com](https://vercel.com) → **Add New → Project** → bu GitHub reposunu seç
-2. **Environment Variables** bölümüne yukarıdaki 5 değişkeni ekle
-3. **Deploy**
+2. **Environment Variables** bölümüne yukarıdaki değişkenleri ekle
+3. **Deploy**, ardından hemen siteyi açıp hesabını oluştur
 
 Telefondan açıp **ana ekrana ekle** dersen uygulama gibi tam ekran açılır (PWA olarak kuruldu:
 ikon, tema rengi ve manifest hazır). Arayüz mobil öncelikli tasarlandı; bilgisayarda çözerken
@@ -130,11 +139,11 @@ src/app/analiz               günlük / haftalık / aylık analiz
 
 ## Güvenlik
 
-- Her tablo **RLS** ile korunur: herkes yalnızca kendi setini, sorusunu, cevabını görür.
+- Her tablo **RLS** ile korunur: veriler hesaba bağlıdır, oturum açmadan hiçbir şey okunamaz.
 - PDF kovası özeldir; dosyalar `<kullanıcı-id>/...` klasörüne yazılır, başkası okuyamaz.
 - `service_role` anahtarı yalnızca sunucu tarafında kullanılır, tarayıcıya hiç gitmez.
-- Supabase'de genel kayıt kapalıdır; hesap açmanın tek yolu izin listesini kontrol eden
-  `/api/kayit` ucudur.
+- Supabase'de genel kayıt kapalıdır; tek hesap ilk kurulumda açılır, sonra `/api/kayit`
+  kalıcı olarak 403 döner.
 
 ## Bilinen sınırlar
 

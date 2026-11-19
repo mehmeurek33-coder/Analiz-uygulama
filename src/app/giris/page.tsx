@@ -1,6 +1,11 @@
 import GirisFormu from "@/components/GirisFormu";
+import { hesapVarMi } from "@/lib/supabase/admin";
 
-export default function GirisSayfasi() {
+export const dynamic = "force-dynamic";
+
+export default async function GirisSayfasi() {
+  const kurulumGerekli = !(await hesapVarMi());
+
   return (
     <div className="mx-auto mt-6 max-w-md sm:mt-16">
       <div className="mb-6 text-center">
@@ -9,10 +14,12 @@ export default function GirisSayfasi() {
         </div>
         <h1 className="text-2xl font-bold">Soru Analiz</h1>
         <p className="ince mt-1">
-          Soru PDF&apos;lerini yükle, çöz, hangi konuda eksiğin olduğunu gor.
+          {kurulumGerekli
+            ? "İlk kurulum: kendi hesabını oluştur."
+            : "Soru PDF'lerini yükle, çöz, hangi konuda eksiğin olduğunu gör."}
         </p>
       </div>
-      <GirisFormu />
+      <GirisFormu kurulumGerekli={kurulumGerekli} />
     </div>
   );
 }
