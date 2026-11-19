@@ -32,8 +32,7 @@ export default async function Panel() {
     supabase
       .from("soru_setleri")
       .select("*")
-      .order("created_at", { ascending: false })
-      .limit(10),
+      .order("ad", { ascending: true }),
     supabase
       .from("denemeler")
       .select("id, ad, set_id, soru_sayisi, basladi_at, bitti_at")
@@ -52,6 +51,14 @@ export default async function Panel() {
   const denemeler = (denemelerQ.data ?? []) as Deneme[];
   const perf = (perfQ.data ?? []) as PerfSatiri[];
   const toplamSoru = soruSayisiQ.count ?? 0;
+
+  // "TTS Mikrobiyoloji · 09 Gram Pozitif Koklar" -> kitap: "TTS Mikrobiyoloji"
+  const gruplar = new Map<string, SoruSeti[]>();
+  for (const st of setler) {
+    const kitap = st.ad.includes(" · ") ? st.ad.split(" · ")[0] : "Diğer setler";
+    gruplar.set(kitap, [...(gruplar.get(kitap) ?? []), st]);
+  }
+  const kitaplar = [...gruplar.entries()];
 
   const ozet = ozetle(perf);
   const oncekiOzet = ozetle((oncekiQ.data ?? []) as PerfSatiri[]);
@@ -145,32 +152,48 @@ export default async function Panel() {
         {setler.length === 0 ? (
           <p className="ince">Henüz set yok.</p>
         ) : (
-          <ul className="divide-y divide-cizgi">
-            {setler.map((s) => (
-              <li key={s.id} className="flex flex-wrap items-center gap-3 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{s.ad}</p>
-                  <p className="text-xs text-silik">
-                    {s.soru_sayisi} soru · {s.sayfa_sayisi} sayfa ·{" "}
-                    {s.durum === "hazir"
-                      ? "hazır"
-                      : s.durum === "hata"
-                        ? `hata: ${s.hata ?? ""}`
-                        : `${s.islenen_parca}/${s.parca_sayisi} parça işlendi`}
-                  </p>
-                </div>
-                {s.durum === "hazir" || s.soru_sayisi > 0 ? (
-                  <div className="w-full sm:w-44">
-                    <DenemeBaslat mod="tumu" setId={s.id} etiket="Bu setten çöz" ikincil />
-                  </div>
-                ) : (
-                  <Link href={`/yukle?set=${s.id}`} className="btn-ikincil">
-                    İşlemeye devam et
-                  </Link>
-                )}
-              </li>
+          <div className="space-y-2">
+            {kitaplar.map(([kitap, liste]) => (
+              <details
+                key={kitap}
+                className="group rounded-xl border border-cizgi bg-kart2"
+                open={kitaplar.length === 1 && liste.length <= 8}
+              >
+                <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-3">
+                  <span className="text-silik transition group-open:rotate-90" aria-hidden>
+                    ▸
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{kitap}</span>
+                  <span className="shrink-0 text-xs text-silik tabular-nums">
+                    {liste.length} bölüm · {liste.reduce((a, x) => a + x.soru_sayisi, 0)} soru
+                  </span>
+                </summary>
+                <ul className="divide-y divide-cizgi border-t border-cizgi">
+                  {liste.map((s) => (
+                    <li key={s.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm">{bolumAdi(s.ad)}</p>
+                        <p className="text-xs text-silik">
+                          {s.soru_sayisi} soru
+                          {s.durum === "hata" ? ` · hata: ${s.hata ?? ""}` : ""}
+                          {s.durum !== "hazir" && s.durum !== "hata"
+                            ? ` · ${s.islenen_parca}/${s.parca_sayisi} parça işlendi`
+                            : ""}
+                        </p>
+                      </div>
+                      {s.durum === "hazir" || s.soru_sayisi > 0 ? (
+                        <DenemeBaslat mod="tumu" setId={s.id} etiket="Çöz" ikincil kucuk />
+                      ) : (
+                        <Link href={`/yukle?set=${s.id}`} className="btn-ikincil px-3 py-1.5 text-xs">
+                          Devam et
+                        </Link>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </details>
             ))}
-          </ul>
+          </div>
         )}
       </section>
 
@@ -207,4 +230,8 @@ export default async function Panel() {
       </section>
     </div>
   );
+}
+
+function bolumAdi(ad: string) {
+  return ad.includes(" · ") ? ad.split(" · ").slice(1).join(" · ") : ad;
 }
