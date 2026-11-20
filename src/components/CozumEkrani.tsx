@@ -2,8 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import AciklamaKutusu from "@/components/AciklamaKutusu";
 
-export type Sonuc = { dogru: boolean | null; dogruCevap: string | null; aciklama: string | null };
+export type Sonuc = {
+  dogru: boolean | null;
+  dogruCevap: string | null;
+  aciklama: string | null;
+  /** Kitaptaki açıklamanın görüntüsü (imzalı bağlantı) */
+  aciklamaGorsel?: string | null;
+};
 
 export type CozumSorusu = {
   cevapId: string;
@@ -19,7 +26,7 @@ export type CozumSorusu = {
   /** Soru bankası modunda, cevaplanmış soruların sonucu */
   sonuc: Sonuc | null;
   /** Soru bankası modunda önceden yüklenen anahtar (anında geri bildirim için) */
-  anahtar?: { dogruCevap: string | null; aciklama: string | null } | null;
+  anahtar?: { dogruCevap: string | null; aciklama: string | null; aciklamaGorsel?: string | null } | null;
   /** "Emin değilim" işareti: doğru olsa da tekrar listesine girer */
   eminDegil?: boolean;
 };
@@ -117,7 +124,10 @@ export default function CozumEkrani({
     const onceden = anlik && soru.anahtar ? soru.anahtar : null;
     if (onceden) {
       const dogru = onceden.dogruCevap ? harf === onceden.dogruCevap : null;
-      setSonuclar((s) => ({ ...s, [id]: { dogru, dogruCevap: onceden.dogruCevap, aciklama: onceden.aciklama } }));
+      setSonuclar((s) => ({
+        ...s,
+        [id]: { dogru, dogruCevap: onceden.dogruCevap, aciklama: onceden.aciklama, aciklamaGorsel: onceden.aciklamaGorsel },
+      }));
       setAciklamaAcik((a) => ({ ...a, [id]: dogru === false }));
     }
     setHatalar((h) => {
@@ -332,8 +342,8 @@ export default function CozumEkrani({
                   {acik ? "Açıklamayı gizle" : "Açıklamayı göster"}
                 </button>
                 {acik && (
-                  <div className="mt-2 rounded-xl border border-cizgi bg-kart2 p-3 text-sm leading-relaxed whitespace-pre-wrap text-metin/90">
-                    {r.aciklama || "Bu soru için kitapta açıklama bulunamadı."}
+                  <div className="mt-2">
+                    <AciklamaKutusu metin={r.aciklama} gorsel={r.aciklamaGorsel} />
                   </div>
                 )}
               </div>

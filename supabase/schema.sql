@@ -345,3 +345,11 @@ grant select on public.v_son_cevap to authenticated, service_role;
 insert into storage.buckets (id, name, public, file_size_limit)
 values ('yedekler', 'yedekler', false, 52428800)
 on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------- göç 6: açıklama görüntüsü
+-- Kitaptaki açıklamanın sayfadan kesilmiş görüntüsü (tablo/şekil olduğu gibi). Gizli depo,
+-- uygulama sunucusu kısa ömürlü imzalı bağlantı üretir. Yol: <soru_id>.webp
+alter table public.sorular add column if not exists aciklama_gorsel text;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('aciklamalar', 'aciklamalar', false, 5242880, array['image/webp', 'image/jpeg', 'image/png'])
+on conflict (id) do nothing;

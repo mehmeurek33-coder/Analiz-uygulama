@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import AciklamaKutusu from "@/components/AciklamaKutusu";
 import SoruDuzelt from "@/components/SoruDuzelt";
 
 export type SonucSatiri = {
@@ -15,6 +16,7 @@ export type SonucSatiri = {
   secenekler: Record<string, string>;
   dogruCevap: string | null;
   aciklama: string | null;
+  aciklamaGorsel?: string | null;
   ders: string | null;
   konu: string | null;
   altKonu: string | null;
@@ -132,11 +134,10 @@ export default function SonucListesi({ satirlar }: { satirlar: SonucSatiri[] }) 
                 />
               </div>
 
-              {s.aciklama && (
-                <p className="mt-3 rounded-lg border border-cizgi bg-kart2 px-3 py-2 text-sm text-silik">
-                  <span className="font-semibold text-metin">Not: </span>
-                  {s.aciklama}
-                </p>
+              {(s.aciklama || s.aciklamaGorsel) && (
+                <div className="mt-3">
+                  <AciklamaKutusu metin={s.aciklama} gorsel={s.aciklamaGorsel} />
+                </div>
               )}
             </li>
           ))}

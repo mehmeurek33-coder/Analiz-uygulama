@@ -33,6 +33,20 @@ cp scripts/ocr/bolumler_ornek_tts_mikro.py $S/araclar/bolumler.py   # sonra yeni
 5. **`aciklama.py`** — her sorunun altındaki kitap açıklamasını çıkarır (`aciklamalar.json`),
    `hazir/*.json`'a eklenir.
 6. `scripts/soru-ekle.ts` ile SQL üret ve çalıştır (CLAUDE.md).
+7. **Açıklama görüntüleri** (tablo/şekil olduğu gibi, OCR hatası yok):
+   - `ocr_tsv.sh <pdf> <pdf_sayfa> <kitap_sayfa> <scratchpad> [eşik]` — sütun PNG'lerini saklar,
+     satır konumlu TSV üretir. **`OMP_THREAD_LIMIT=1` ver**, yoksa paralel tesseract kilitlenir.
+     Eşikli OCR'lanan sayfalarda (gri zemin) 5. argüman `150`, `esik.py` gerekir.
+   - `aciklama_gorsel.py <scratchpad>` — açıklamanın yerini bulur (son şıktan "Doğru cevap"
+     satırına), sütun/sayfa geçişlerinde sütunu sonuna/başına kadar alır, iki sütuna yayılan
+     tablo/şekli sütun arası boşluktaki mürekkepten tanıyıp tam genişlikte keser, varyant
+     kutularını dışarıda bırakır → `gorsel/KK-no.webp` (ortalama ~75 KB).
+   - `gorsel_yukle.py <scratchpad> <proje_ref> <kaynak> <ders>` — `aciklamalar` deposuna
+     `<soru_id>.webp` olarak yükler, `sorular.aciklama_gorsel`'i doldurur. Anahtarı yönetim
+     API'sinden alır, yazdırmaz. Ortamın ağında `<proje_ref>.supabase.co` izinli olmalı.
+     Yüklenmiş olanları atlar; tekrar çalıştırmak güvenli.
+   - Metin katmanı olan PDF'lerde de aynı fikir geçerli: açıklama bölgesini sayfa
+     görüntüsünden kesmek tabloları korur.
 
 ## Konu başlıkları değişince
 

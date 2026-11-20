@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import CozumEkrani, { type CozumSorusu } from "@/components/CozumEkrani";
+import { gorselBaglantilari } from "@/lib/aciklamaGorsel";
 import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
   // Soru bankası modunda (kişisel çalışma) anında geri bildirim için önceden gönderilir;
   // arayüz cevap verilene kadar göstermez. Puanlama yine sunucuda yapılır.
   const alanlar = deneme.anlik
-    ? "numara, metin, secenekler, ders, konu, dogru_cevap, aciklama"
+    ? "numara, metin, secenekler, ders, konu, dogru_cevap, aciklama, aciklama_gorsel"
     : "numara, metin, secenekler, ders, konu";
 
   const { data: satirlar } = await supabase
@@ -34,6 +35,12 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
     .select(`id, soru_id, sira, isaretlenen, dogru, sure_sn, emin_degil, sorular(${alanlar})`)
     .eq("deneme_id", id)
     .order("sira", { ascending: true });
+
+  const baglantilar = deneme.anlik
+    ? await gorselBaglantilari(
+        (satirlar ?? []).map((s) => (s.sorular as unknown as { aciklama_gorsel?: string | null })?.aciklama_gorsel),
+      )
+    : new Map<string, string>();
 
   const sorular: CozumSorusu[] = (satirlar ?? []).map((s) => {
     const soru = s.sorular as unknown as {
@@ -44,10 +51,12 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
       konu: string | null;
       dogru_cevap?: string | null;
       aciklama?: string | null;
+      aciklama_gorsel?: string | null;
     };
+    const gorsel = soru?.aciklama_gorsel ? (baglantilar.get(soru.aciklama_gorsel) ?? null) : null;
     const acik = Boolean(deneme.anlik && s.isaretlenen);
     const anahtar = deneme.anlik
-      ? { dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null }
+      ? { dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null, aciklamaGorsel: gorsel }
       : null;
     return {
       cevapId: s.id,
@@ -61,7 +70,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
       ders: soru?.ders ?? null,
       konu: soru?.konu ?? null,
       sonuc: acik
-        ? { dogru: s.dogru, dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null }
+        ? { dogru: s.dogru, dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null, aciklamaGorsel: gorsel }
         : null,
       anahtar,
       eminDegil: Boolean(s.emin_degil),
