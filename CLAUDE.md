@@ -191,9 +191,11 @@ Raporlarken:
 - **Satır sınırı:** PostgREST bir istekte en fazla 1000 satır döndürür. Analiz için ham
   `v_konu_performans` çekme; `perf_konu(bas, son)` / `perf_gun(bas, son)` RPC'lerini kullan.
   Listeleri ders/set ile filtrele (`v_set_ilerleme.ders`, `v_ders_kaynak`, `v_son_cevap`).
-- **Açıklama görüntüleri:** TTS Mikrobiyoloji 1324 soru, 97 MB (`aciklamalar` deposu, gizli; sayfa
-  açılırken 6 saatlik imzalı bağlantı, `src/lib/aciklamaGorsel.ts`). Kitap başına ~100 MB: depolama
-  1 GB olduğundan ~8 kitaptan sonra Supabase Pro ya da daha düşük kalite gerekir.
+- **Açıklama görüntüleri:** TTS Mikrobiyoloji 1324 soru, 93 MB (eski ayar, tam gri; `aciklamalar`
+  deposu, gizli; sayfa açılırken 6 saatlik imzalı bağlantı, `src/lib/aciklamaGorsel.ts`). Yeni varsayılan
+  4 gri ton kayıpsız: kitap başına ~40 MB. Metin katmanlı PDF'lerde metin zaten doğru: görüntüyü
+  yalnızca tablo/şekil içeren açıklamalara üret. Böylece 33 kitap 1 GB'a sığar. Sığmazsa seçenekler:
+  Cloudflare R2 / Backblaze B2 (10 GB ücretsiz) ya da Supabase Pro. Soru çözümü Claude kotası harcamaz.
 - **Kapasite:** Supabase Free (500 MB veritabanı, 1 GB depolama, dosya başına 50 MB; 7 gün hiç
   kullanılmazsa proje duraklar, panelden "Restore" ile geri gelir; Supabase'in kendi yedeği yok, bizim
   yedeğimiz var). Soru başına ~2,5 KB. `sorular.json.gz` 50 MB'a yaklaşırsa yedeği parçala.

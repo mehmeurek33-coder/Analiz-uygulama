@@ -27,7 +27,11 @@ from bolumler import BOLUMLER, SON_SAYFA  # noqa: E402
 
 TSV = os.path.join(S, "ocr", "tsv")
 PNG = os.path.join(S, "ocr", "png")
-CIKIS = os.path.join(S, "gorsel")
+CIKIS = os.environ.get("GORSEL_CIKIS") or os.path.join(S, "gorsel")
+# Deneme/ayar: kalite, olcek carpani, gri ton sayisi (0 = tam gri)
+KALITE = int(os.environ.get("GORSEL_KALITE", "50"))
+OLCEK_CARPAN = float(os.environ.get("GORSEL_OLCEK", "1"))
+TON = int(os.environ.get("GORSEL_TON", "4"))  # 4 gri ton + kayipsiz: ~%55 daha kucuk, okunurluk ayni
 os.makedirs(CIKIS, exist_ok=True)
 
 HARF = {"8": "B", "G": "C", "©": "C", "6": "C", "€": "E", "£": "E", "&": "E", "0": "D", "O": "D"}
@@ -255,7 +259,7 @@ def kes(parcalar, hedef):
         return False
     olcekli = []
     for tur, r in resimler:
-        o = TAM_OLCEK if tur == "tam" else SUTUN_OLCEK
+        o = (TAM_OLCEK if tur == "tam" else SUTUN_OLCEK) * OLCEK_CARPAN
         olcekli.append(r.resize((round(r.width * o), round(r.height * o)), Image.LANCZOS))
     genislik = max(r.width for r in olcekli)
     yuk = sum(r.height for r in olcekli) + ARA * (len(olcekli) - 1)
@@ -264,7 +268,13 @@ def kes(parcalar, hedef):
     for r in olcekli:
         tuval.paste(r, ((genislik - r.width) // 2, y))
         y += r.height + ARA
-    tuval.save(hedef, "WEBP", quality=50, method=6)
+    if TON:
+        # Az sayida gri tona indir + kayipsiz WebP (taranmis metinde cok kucuk dosya)
+        adim = 255 / (TON - 1)
+        tuval = tuval.point(lambda v: int(round(round(v / adim) * adim)))
+        tuval.save(hedef, "WEBP", lossless=True, quality=100, method=6)
+    else:
+        tuval.save(hedef, "WEBP", quality=KALITE, method=6)
     return True
 
 
