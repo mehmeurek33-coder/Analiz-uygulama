@@ -2,7 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // /api/yedek: Vercel cron oturumsuz çağırır; rota kendisi CRON_SECRET ya da oturum ister
-const ACIK_YOLLAR = ["/giris", "/api/kayit", "/api/yedek", "/_next", "/favicon"];
+// /api/gorsel-yukle: aktarım araçları oturumsuz çağırır; rota YUKLEME_ANAHTARI ister
+const ACIK_YOLLAR = ["/giris", "/api/kayit", "/api/yedek", "/api/gorsel-yukle", "/_next", "/favicon"];
 
 export async function middleware(request: NextRequest) {
   const yol = request.nextUrl.pathname;
