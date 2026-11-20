@@ -13,6 +13,8 @@ import {
   yuzde,
   type PerfSatiri,
 } from "@/lib/analiz";
+import SetListesi, { kaynagaGore, type Ilerleme } from "@/components/SetListesi";
+import { MUFREDAT } from "@/lib/mufredat";
 import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
 import type { Deneme, SoruSeti } from "@/lib/tipler";
 import { pdfYuklemeAcik } from "@/lib/ozellikler";
@@ -28,7 +30,7 @@ export default async function Panel() {
   const baslangic = donemBaslangici("hafta")!;
   const onceki = oncekiDonemAraligi("hafta")!;
 
-  const [setlerQ, denemelerQ, perfQ, soruSayisiQ, oncekiQ, ilerlemeQ] = await Promise.all([
+  const [setlerQ, denemelerQ, perfQ, soruSayisiQ, oncekiQ, ilerlemeQ, havuzQ] = await Promise.all([
     supabase
       .from("soru_setleri")
       .select("*")
@@ -46,6 +48,7 @@ export default async function Panel() {
       .gte("gun", onceki.bas)
       .lte("gun", onceki.son),
     supabase.from("v_set_ilerleme").select("set_id, soru_sayisi, cevaplanan, dogru, bitti_at"),
+    supabase.from("v_konu_havuz").select("ders, soru, cozulen"),
   ]);
 
   // set_id -> en son oturumdaki ilerleme
@@ -58,13 +61,28 @@ export default async function Panel() {
   const perf = (perfQ.data ?? []) as PerfSatiri[];
   const toplamSoru = soruSayisiQ.count ?? 0;
 
-  // "TTS Mikrobiyoloji · 09 Gram Pozitif Koklar" -> kitap: "TTS Mikrobiyoloji"
-  const gruplar = new Map<string, SoruSeti[]>();
-  for (const st of setler) {
-    const kitap = st.ad.includes(" · ") ? st.ad.split(" · ")[0] : "Diğer setler";
-    gruplar.set(kitap, [...(gruplar.get(kitap) ?? []), st]);
+  // Ders kartları: havuzdaki soru, en az bir kez çözülen, kaynak adları, son 7 gün oranı
+  const dersBilgi = new Map<string, { soru: number; cozulen: number; kaynaklar: Set<string> }>();
+  const bilgi = (d: string) => {
+    const b = dersBilgi.get(d) ?? { soru: 0, cozulen: 0, kaynaklar: new Set<string>() };
+    dersBilgi.set(d, b);
+    return b;
+  };
+  for (const h of havuzQ.data ?? []) {
+    const b = bilgi(h.ders ?? "Belirsiz");
+    b.soru += Number(h.soru);
+    b.cozulen += Number(h.cozulen);
   }
-  const kitaplar = [...gruplar.entries()];
+  for (const st of setler) if (st.ders && st.kaynak) bilgi(st.ders).kaynaklar.add(st.kaynak);
+  const haftalik = new Map<string, { t: number; d: number }>();
+  for (const p of perf) {
+    const h = haftalik.get(p.ders) ?? { t: 0, d: 0 };
+    h.t += Number(p.toplam);
+    h.d += Number(p.dogru);
+    haftalik.set(p.ders, h);
+  }
+  const dersAdlari = new Set(MUFREDAT.map((d) => d.ders));
+  const digerSetler = setler.filter((st) => !st.ders || !dersAdlari.has(st.ders));
 
   const ozet = ozetle(perf);
   const oncekiOzet = ozetle((oncekiQ.data ?? []) as PerfSatiri[]);
@@ -98,21 +116,22 @@ export default async function Panel() {
       </div>
 
       <section className="kart">
-        <h2 className="mb-3 font-semibold">Hızlı deneme</h2>
+        <h2 className="font-semibold">Genel deneme · tüm dersler</h2>
+        <p className="mb-3 text-xs text-silik">Tek bir derse özel denemeler için aşağıdan dersi aç.</p>
         <div className="grid gap-3 sm:grid-cols-3">
-          <DenemeBaslat mod="rastgele" adet={20} etiket="Rastgele 20 soru" aciklama="Havuzdan karışık" />
+          <DenemeBaslat mod="rastgele" adet={20} etiket="Rastgele 20 soru" aciklama="Bütün derslerden karışık" />
           <DenemeBaslat
             mod="zayif"
             adet={20}
             etiket="Zayıf konularım"
-            aciklama="En düşük oranlı konulardan"
+            aciklama="Tüm derslerdeki en düşük oranlı konular"
             ikincil
           />
           <DenemeBaslat
             mod="yanlis"
             adet={20}
-            etiket="Yanlislarim"
-            aciklama="Daha önce yanlış yaptıklarım"
+            etiket="Yanlışlarım"
+            aciklama="Son cevabı yanlış olan sorular"
             ikincil
           />
         </div>
@@ -148,78 +167,35 @@ export default async function Panel() {
 
       <section className="kart">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="font-semibold">Soru setlerim</h2>
+          <h2 className="font-semibold">Derslerim</h2>
           {yuklemeAcik && (
             <Link href="/yukle" className="text-sm text-vurgu hover:underline">
               + PDF yükle
             </Link>
           )}
         </div>
-        {setler.length === 0 ? (
-          <p className="ince">Henüz set yok.</p>
-        ) : (
-          <div className="space-y-2">
-            {kitaplar.map(([kitap, liste]) => (
-              <details
-                key={kitap}
-                className="group rounded-xl border border-cizgi bg-kart2"
-                open={kitaplar.length === 1 && liste.length <= 8}
-              >
-                <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-3">
-                  <span className="text-silik transition group-open:rotate-90" aria-hidden>
-                    ▸
-                  </span>
-                  <span className="min-w-0 flex-1 truncate font-medium">{kitap}</span>
-                  <span className="shrink-0 text-right text-xs text-silik tabular-nums">
-                    {liste.filter((x) => ilerleme.get(x.id)?.bitti_at).length}/{liste.length} bölüm bitti
-                    <br />
-                    {liste.reduce((a, x) => a + Number(ilerleme.get(x.id)?.cevaplanan ?? 0), 0)}/
-                    {liste.reduce((a, x) => a + x.soru_sayisi, 0)} soru
-                  </span>
-                </summary>
-                <ul className="divide-y divide-cizgi border-t border-cizgi">
-                  {liste.map((s) => (
-                    <li key={s.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm">
-                          {bolumAdi(s.ad)}
-                          {s.tur === "deneme" && (
-                            <span className="ml-2 rounded-md bg-orta/15 px-1.5 py-0.5 text-[10px] font-semibold text-orta">
-                              DENEME
-                            </span>
-                          )}
-                        </p>
-                        <SetIlerleme soruSayisi={s.soru_sayisi} il={ilerleme.get(s.id)} />
-                        <p className="text-xs text-silik">
-                          {s.durum === "hata" ? `hata: ${s.hata ?? ""}` : ""}
-                          {s.durum !== "hazir" && s.durum !== "hata"
-                            ? ` · ${s.islenen_parca}/${s.parca_sayisi} parça işlendi`
-                            : ""}
-                        </p>
-                      </div>
-                      {s.durum === "hazir" || s.soru_sayisi > 0 ? (
-                        <DenemeBaslat
-                          mod="tumu"
-                          setId={s.id}
-                          etiket={
-                            !ilerleme.get(s.id)
-                              ? "Çöz"
-                              : ilerleme.get(s.id)?.bitti_at
-                                ? "Tekrar çöz"
-                                : "Devam et"
-                          }
-                          ikincil
-                          kucuk
-                        />
-                      ) : (
-                        <Link href={`/yukle?set=${s.id}`} className="btn-ikincil px-3 py-1.5 text-xs">
-                          Devam et
-                        </Link>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </details>
+        {(["Temel Bilimler", "Klinik Bilimler"] as const).map((grup) => (
+          <div key={grup} className="mb-4 last:mb-0">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-silik">{grup}</p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {MUFREDAT.filter((d) => d.grup === grup).map((d) => (
+                <DersKarti
+                  key={d.ders}
+                  ders={d.ders}
+                  soru={dersBilgi.get(d.ders)?.soru ?? 0}
+                  cozulen={dersBilgi.get(d.ders)?.cozulen ?? 0}
+                  kaynaklar={[...(dersBilgi.get(d.ders)?.kaynaklar ?? [])].sort((a, b) => a.localeCompare(b, "tr"))}
+                  hafta={haftalik.get(d.ders)}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+        {digerSetler.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-silik">Dersi belirsiz setler</p>
+            {kaynagaGore(digerSetler).map(([kaynak, liste]) => (
+              <SetListesi key={kaynak} baslik={kaynak} setler={liste} ilerleme={ilerleme} />
             ))}
           </div>
         )}
@@ -260,46 +236,61 @@ export default async function Panel() {
   );
 }
 
-function bolumAdi(ad: string) {
-  return ad.includes(" · ") ? ad.split(" · ").slice(1).join(" · ") : ad;
-}
-
-type Ilerleme = {
-  set_id: string;
-  soru_sayisi: number;
-  cevaplanan: number;
-  dogru: number;
-  bitti_at: string | null;
-};
-
-/** Bölümün durumu: başlanmadı / yüzde kaç çözüldü / tamamlandı + doğru oranı. */
-function SetIlerleme({ soruSayisi, il }: { soruSayisi: number; il?: Ilerleme }) {
-  if (!il) {
-    return <p className="text-xs text-silik">{soruSayisi} soru · başlanmadı</p>;
+function DersKarti({
+  ders,
+  soru,
+  cozulen,
+  kaynaklar,
+  hafta,
+}: {
+  ders: string;
+  soru: number;
+  cozulen: number;
+  kaynaklar: string[];
+  hafta?: { t: number; d: number };
+}) {
+  if (soru === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-cizgi px-3 py-3 opacity-60">
+        <p className="text-sm font-medium">{ders}</p>
+        <p className="text-xs text-silik">henüz soru yok</p>
+      </div>
+    );
   }
-  const cevap = Number(il.cevaplanan);
-  const toplam = Number(il.soru_sayisi) || soruSayisi;
-  const yuzde = Math.round((cevap / toplam) * 100);
-  const dogruOran = cevap ? Math.round((Number(il.dogru) / cevap) * 100) : 0;
+  const yuzde = Math.round((cozulen / soru) * 100);
+  const oran = hafta && hafta.t ? hafta.d / hafta.t : null;
   return (
-    <div className="mt-1">
-      <p className="text-xs tabular-nums">
-        {il.bitti_at ? (
-          <span className="font-semibold text-iyi">✓ Tamamlandı</span>
-        ) : (
-          <span className="font-semibold text-vurgu">%{yuzde} çözüldü</span>
-        )}
+    <Link
+      href={`/ders/${encodeURIComponent(ders)}`}
+      className="block rounded-xl border border-cizgi bg-kart2 px-3 py-3 transition hover:border-vurgu/60"
+    >
+      <div className="flex items-baseline gap-2">
+        <p className="min-w-0 flex-1 truncate font-medium">{ders}</p>
+        <span className="text-silik" aria-hidden>
+          ›
+        </span>
+      </div>
+      <p className="truncate text-xs text-silik">{kaynaklar.join(" · ") || "kaynak belirtilmemiş"}</p>
+      <p className="mt-2 text-xs tabular-nums">
+        <span className="font-semibold text-vurgu">%{yuzde}</span>
         <span className="text-silik">
           {" "}
-          · {cevap}/{toplam} soru{cevap > 0 ? ` · %${dogruOran} doğru` : ""}
+          çözüldü · {cozulen}/{soru} soru
         </span>
       </p>
-      <div className="mt-1 h-1 w-full max-w-48 overflow-hidden rounded-[4px] bg-zemin">
-        <div
-          className={`h-full rounded-[4px] ${il.bitti_at ? "bg-iyi" : "bg-vurgu"}`}
-          style={{ width: `${Math.max(yuzde, cevap ? 3 : 0)}%` }}
-        />
+      <div className="mt-1 h-1 w-full overflow-hidden rounded-[4px] bg-zemin">
+        <div className="h-full rounded-[4px] bg-vurgu" style={{ width: `${Math.max(yuzde, cozulen ? 2 : 0)}%` }} />
       </div>
-    </div>
+      <p className="mt-1.5 text-xs text-silik tabular-nums">
+        Son 7 gün:{" "}
+        {oran === null ? (
+          "soru çözülmedi"
+        ) : (
+          <span className={oran >= 0.7 ? "text-iyi" : oran >= 0.5 ? "text-orta" : "text-zayif"}>
+            %{Math.round(oran * 100)} doğru ({hafta!.t} soru)
+          </span>
+        )}
+      </p>
+    </Link>
   );
 }

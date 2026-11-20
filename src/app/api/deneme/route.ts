@@ -26,14 +26,16 @@ export async function POST(request: Request) {
   // Mod: deneme setleri sonuçları sonda gösterir; soru bankası ve karışık
   // denemeler (rastgele, zayıf konu, yanlışlarım, konu) anında geri bildirim verir.
   let anlik = true;
+  let setAdi: string | null = null;
   if (mod === "tumu" && setId) {
     const { data: set } = await supabase
       .from("soru_setleri")
-      .select("tur")
+      .select("tur, ad")
       .eq("id", setId)
       .eq("user_id", user.id)
       .single();
     anlik = set?.tur !== "deneme";
+    setAdi = set?.ad ?? null;
 
     // Bu setten yarım kalmış bir oturum varsa yenisini açma, ona devam et
     const { data: yarim } = await supabase
@@ -62,39 +64,44 @@ export async function POST(request: Request) {
       .limit(500);
     soruIdleri = karistir((data ?? []).map((s) => s.id)).slice(0, limit);
   } else if (mod === "yanlis") {
-    // Daha once yanlis cevaplanmis sorular
-    const { data } = await supabase
+    // Son cevabı yanlış olan sorular: sonradan doğru yaptığın soru listeden düşer.
+    // ders verilirse yalnızca o dersin soruları.
+    let sorgu = supabase
       .from("cevaplar")
-      .select("soru_id, cevaplandi_at")
+      .select(ders ? "soru_id, dogru, cevaplandi_at, sorular!inner(ders)" : "soru_id, dogru, cevaplandi_at")
       .eq("user_id", user.id)
-      .eq("dogru", false)
-      .not("isaretlenen", "is", null)
-      .order("cevaplandi_at", { ascending: false })
-      .limit(500);
-    soruIdleri = [...new Set((data ?? []).map((c) => c.soru_id))].slice(0, limit);
+      .not("dogru", "is", null)
+      .not("isaretlenen", "is", null);
+    if (ders) sorgu = sorgu.eq("sorular.ders", ders);
+    const { data } = await sorgu.order("cevaplandi_at", { ascending: false }).limit(1000);
+    const son = new Map<string, boolean>();
+    for (const c of (data ?? []) as unknown as { soru_id: string; dogru: boolean }[]) {
+      if (!son.has(c.soru_id)) son.set(c.soru_id, c.dogru);
+    }
+    soruIdleri = [...son.entries()].filter(([, d]) => d === false).map(([id]) => id).slice(0, limit);
   } else if (mod === "zayif") {
     // En zayif konulardan soru topla
-    const { data: perf } = await supabase
-      .from("v_konu_performans")
+    let perfSorgu = supabase
+      .from("v_konu_toplam")
       .select("ders, konu, toplam, dogru")
       .eq("user_id", user.id);
+    if (ders) perfSorgu = perfSorgu.eq("ders", ders);
+    const { data: perf } = await perfSorgu;
 
-    const toplamlar = new Map<string, { ders: string; konu: string; t: number; d: number }>();
-    for (const p of perf ?? []) {
-      const k = `${p.ders}||${p.konu}`;
-      const mevcut = toplamlar.get(k) ?? { ders: p.ders, konu: p.konu, t: 0, d: 0 };
-      mevcut.t += Number(p.toplam) || 0;
-      mevcut.d += Number(p.dogru) || 0;
-      toplamlar.set(k, mevcut);
-    }
-    const zayif = [...toplamlar.values()]
-      .filter((x) => x.t >= 3)
-      .sort((a, b) => a.d / a.t - b.d / b.t)
+    // En az 3 soru çözülmüş, %70 altındaki konular; en düşük orandan başla
+    const zayif = (perf ?? [])
+      .map((p) => ({ ders: p.ders, konu: p.konu, t: Number(p.toplam) || 0, d: Number(p.dogru) || 0 }))
+      .filter((x) => x.t >= 3 && x.d / x.t < 0.7)
+      .sort((a, b) => a.d / a.t - b.d / b.t || b.t - b.d - (a.t - a.d))
       .slice(0, 6);
 
     if (zayif.length === 0) {
       return NextResponse.json(
-        { hata: "Zayıf konu analizi icin once birkac deneme cozmelisiniz." },
+        {
+          hata: (perf ?? []).some((p) => Number(p.toplam) >= 3)
+            ? "%70'in altında konun yok, iyi gidiyorsun."
+            : "Zayıf konuları bulmak için önce biraz soru çözmelisin.",
+        },
         { status: 400 },
       );
     }
@@ -110,9 +117,23 @@ export async function POST(request: Request) {
       soruIdleri.push(...(data ?? []).map((s) => s.id));
     }
     soruIdleri = karistir([...new Set(soruIdleri)]).slice(0, limit);
+  } else if (mod === "rastgele" && !setId) {
+    // Havuz büyüdükçe hepsini çekmek yerine rastgele bir UUID'den başlayıp id sırasıyla al
+    // (UUID'ler rastgele olduğu için bu, sorulardan rastgele bir örneklem verir).
+    const parca = async (bas: string | null, kac: number) => {
+      let q = supabase.from("sorular").select("id").eq("user_id", user.id);
+      if (ders) q = q.eq("ders", ders);
+      if (bas) q = q.gte("id", bas);
+      const { data } = await q.order("id", { ascending: true }).limit(kac);
+      return (data ?? []).map((x) => x.id as string);
+    };
+    const ilk = await parca(crypto.randomUUID(), limit * 3);
+    const ek = ilk.length < limit * 3 ? await parca(null, limit * 3 - ilk.length) : [];
+    soruIdleri = karistir([...new Set([...ilk, ...ek])]).slice(0, limit);
   } else {
     let sorgu = supabase.from("sorular").select("id, sira").eq("user_id", user.id);
     if (setId) sorgu = sorgu.eq("set_id", setId);
+    else if (ders) sorgu = sorgu.eq("ders", ders);
     const { data, error } = await sorgu.order("sira", { ascending: true }).limit(1000);
     if (error) return NextResponse.json({ hata: error.message }, { status: 500 });
     const hepsi = (data ?? []).map((s) => s.id);
@@ -128,7 +149,13 @@ export async function POST(request: Request) {
     .insert({
       user_id: user.id,
       set_id: setId,
-      ad: (ad || (mod === "konu" && konu ? `${konu} - ${bugunMetni()}` : varsayilanAd(mod))).slice(0, 120),
+      ad: (
+        ad ||
+        setAdi ||
+        (mod === "konu" && konu
+          ? `${konu} - ${bugunMetni()}`
+          : `${ders ? `${ders} · ` : ""}${varsayilanAd(mod)}`)
+      ).slice(0, 120),
       soru_sayisi: soruIdleri.length,
       anlik,
     })

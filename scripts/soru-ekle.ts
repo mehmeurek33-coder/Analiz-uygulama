@@ -13,7 +13,10 @@
  *
  * Girdi biçimi:
  *   {
- *     "ad": "TUSDATA Deneme 3 - Temel Bilimler",
+ *     "ad": "Meditus Farmakoloji · 03 Otonom Sinir Sistemi",
+ *     "kaynak": "Meditus",                     (yeni set için zorunlu: kitabın/serinin adı)
+ *     "ders": "Farmakoloji",                   (isteğe bağlı: yoksa soruların en sık dersi)
+ *     "bolum_no": 3,                           (isteğe bağlı: kaynak içindeki sıra)
  *     "sayfa_sayisi": 40,
  *     "cevap_anahtari": "1-A 2-C ...",        (isteğe bağlı, kayıt için)
  *     "tur": "deneme",                         (isteğe bağlı: deneme sınavı; varsayılan soru bankası)
@@ -44,6 +47,9 @@ type GirdiSoru = {
 
 type Girdi = {
   ad?: string;
+  kaynak?: string;
+  ders?: string;
+  bolum_no?: number;
   /** "deneme": sonuçlar test sonunda; "calisma" (varsayılan): soru bankası, anında geri bildirim */
   tur?: "deneme" | "calisma";
   sayfa_sayisi?: number;
@@ -79,6 +85,8 @@ try {
 
 const ad = (girdi.ad || "").trim();
 if (!setId && !ad) dur("yeni set için 'ad' alanı zorunlu");
+const kaynak = (girdi.kaynak || "").trim();
+if (!setId && !kaynak) dur("yeni set için 'kaynak' alanı zorunlu (örn. \"Tüm TUS Soruları\", \"Meditus\")");
 if (!Array.isArray(girdi.sorular) || girdi.sorular.length === 0) dur("'sorular' boş");
 
 // ---------------------------------------------------------------- doğrulama
@@ -150,9 +158,22 @@ if (hatalar.length) {
   process.exit(1);
 }
 
+// Setin dersi: verilmişse müfredatta olmalı; yoksa soruların en sık dersi
+let setDers = (girdi.ders || "").trim();
+if (setDers && !konuKumesi.has(setDers)) dur(`set dersi "${setDers}" müfredatta yok`);
+if (!setDers) {
+  const say = new Map<string, number>();
+  for (const s of temiz) say.set(s.ders, (say.get(s.ders) ?? 0) + 1);
+  setDers = [...say.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
+const bolumNo = Number.isInteger(girdi.bolum_no) ? girdi.bolum_no : null;
+
 // ---------------------------------------------------------------- SQL
 const veri = JSON.stringify({
   ad,
+  kaynak,
+  ders: setDers,
+  bolum_no: bolumNo,
   sayfa_sayisi: Number.isInteger(girdi.sayfa_sayisi) ? girdi.sayfa_sayisi : 0,
   cevap_anahtari: (girdi.cevap_anahtari || "").trim(),
   tur: girdi.tur === "deneme" ? "deneme" : "calisma",
@@ -200,10 +221,12 @@ select (select id from hedef) as set_id,
   : `with girdi as (select ${etiket}${veri}${etiket}::jsonb as j),
 yeni_set as (
   insert into public.soru_setleri
-    (user_id, ad, sayfa_sayisi, parca_sayisi, islenen_parca, soru_sayisi, cevap_anahtari, durum, tur)
+    (user_id, ad, sayfa_sayisi, parca_sayisi, islenen_parca, soru_sayisi, cevap_anahtari, durum, tur,
+     ders, kaynak, bolum_no)
   select '${kullaniciId}'::uuid, j->>'ad', coalesce((j->>'sayfa_sayisi')::int, 0), 0, 0,
          jsonb_array_length(j->'sorular'), nullif(j->>'cevap_anahtari', ''), 'hazir',
-         case when j->>'tur' = 'deneme' then 'deneme' else 'calisma' end
+         case when j->>'tur' = 'deneme' then 'deneme' else 'calisma' end,
+         j->>'ders', j->>'kaynak', (j->>'bolum_no')::int
   from girdi
   returning id
 ),
@@ -233,7 +256,7 @@ const ozet = [...dagilim.entries()]
   .join("\n");
 
 process.stderr.write(
-  `${temiz.length} soru hazır (${setId ? `mevcut sete ekleme: ${setId}` : `yeni set: "${ad}"`})\n` +
+  `${temiz.length} soru hazır (${setId ? `mevcut sete ekleme: ${setId}` : `yeni set: "${ad}" · ${kaynak} · ${setDers}${bolumNo !== null ? ` · bölüm ${bolumNo}` : ""}`})\n` +
     `${ozet}\n` +
     (uyarilar.length ? `${uyarilar.length} uyarı:\n  ${uyarilar.join("\n  ")}\n` : ""),
 );

@@ -25,6 +25,10 @@ export type SoruSeti = {
   soru_sayisi: number;
   durum: "kuyrukta" | "isleniyor" | "hazir" | "hata";
   tur?: "calisma" | "deneme";
+  /** Setin dersi (müfredattaki ad) ve kaynağı ("Tüm TUS Soruları", "Meditus" ...) */
+  ders?: string | null;
+  kaynak?: string | null;
+  bolum_no?: number | null;
   hata: string | null;
   created_at: string;
 };

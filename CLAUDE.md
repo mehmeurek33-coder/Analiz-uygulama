@@ -45,6 +45,11 @@ select id from auth.users order by created_at limit 1;
    kullanıcıdan iste. **Cevabı kendin çözüp yazma.** Yanlış anahtar bütün analizi bozar.
    Anahtar yoksa `dogru_cevap` boş kalır. `aciklama` alanına kitabın kendi açıklamasını koy; kitapta yoksa boş bırak.
 6. **JSON'u scratchpad'e yaz.** Biçim `scripts/soru-ekle.ts` başındaki yorumda.
+   - **Düzen ders → kaynak → bölüm.** Her yeni sette `kaynak` zorunlu (kitap/seri adı, aynı seride
+     hep aynı yaz: `"Tüm TUS Soruları"`, `"Meditus"` ...). `ders` setin dersi (yoksa soruların en
+     sık dersi alınır), `bolum_no` kitap içindeki sıra. Bölüm bölüm gelen kitapta her bölüm ayrı set.
+   - Set adı `"<Kısa kaynak> <Ders> · NN Bölüm adı"` (örn. `"Meditus Farmakoloji · 03 Otonom"`);
+     arayüz `·` sonrasını bölüm adı olarak gösterir, deneme geçmişinde tam ad görünür.
    - **Deneme sınavı PDF'leri** için JSON'a `"tur": "deneme"` ekle: sonuçlar ve açıklamalar test
      bitince açılır. Belirtilmezse set **soru bankası** olur: her cevap anında kontrol edilir,
      yanlışta açıklama otomatik açılır.
@@ -115,14 +120,20 @@ Raporlarken:
 - **Yüklü kitap:** TUSDATA Tüm TUS Soruları – Mikrobiyoloji (35. baskı): 72 bölüm, 1492 soru, 1360'ında
   kitap açıklaması var. Set adları `TTS Mikrobiyoloji · NN Bölüm adı`; panel `·` öncesine göre kitap kitap gruplar.
   Yedek tablo `public.aktarim_bekleyen` (RLS açık, yetki yok); silinebilir ama zararı yok.
+- **Düzen:** Panel = 11 ders kartı + tüm dersler için genel deneme (rastgele / zayıf konular /
+  yanlışlarım). `/ders/<Ders>` = o dersin istatistikleri, derse özel denemeler, kaynaklar (her kaynak
+  ayrı katlanır liste, bölüm bölüm ilerleme) ve konu listesi (konu konu deneme). Setin yeri
+  `soru_setleri.ders`, `kaynak`, `bolum_no` kolonlarından gelir.
+- **Yanlışlarım:** son cevabı yanlış olan sorular; sonradan doğru yapılan soru listeden düşer.
 - **İki mod** (`soru_setleri.tur`, `denemeler.anlik`):
   - Soru bankası (`calisma`, varsayılan): her şık anında kontrol edilir, cevap kilitlenir, yanlışta açıklama
     açılır. Anahtar ve açıklama sayfayla önceden gelir (anında geri bildirim), kayıt arka planda yapılır.
     Bölüm yarıda bırakılırsa "Devam et" aynı oturumu açar.
   - Deneme (`deneme`): sonuçlar ve açıklamalar "Bitir"den sonra; anahtar tarayıcıya hiç gönderilmez.
   - Hızlı denemeler (rastgele / zayıf konular / yanlışlarım / konu) her zaman soru bankası modundadır.
-- **Görünümler:** `v_konu_performans` (analiz), `v_set_ilerleme` (her setin son oturumu: cevaplanan, doğru,
-  bitti mi → panelde "%x çözüldü" / "Tamamlandı").
+- **Görünümler:** `v_konu_performans` (analiz, gün kırılımlı), `v_konu_toplam` (ders/konu tüm zamanlar),
+  `v_konu_havuz` (ders/konu soru sayısı, en az bir kez çözülen, anahtarsız), `v_set_ilerleme` (her setin
+  son oturumu: cevaplanan, doğru, bitti mi → "%x çözüldü" / "Tamamlandı").
 - **Yetkiler:** Yeni tablo veya görünüm eklersen `authenticated` rolüne `grant` vermeyi unutma (bu projede
   otomatik verilmiyor; vermeyince panel boş görünür).
 - **OCR araçları** (oturumlar arası kalıcı değil): taranmış kitaplar için tesseract-ocr-tur + pdftoppm ile

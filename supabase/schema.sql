@@ -237,3 +237,36 @@ where d.set_id is not null
 order by d.user_id, d.set_id, d.created_at desc;
 
 grant select on public.v_set_ilerleme to authenticated, service_role;
+-- ---------------------------------------------------------------- göç 3: ders / kaynak düzeni
+alter table public.soru_setleri add column if not exists ders text;
+alter table public.soru_setleri add column if not exists kaynak text;
+alter table public.soru_setleri add column if not exists bolum_no int;
+create index if not exists soru_setleri_ders_idx on public.soru_setleri(user_id, ders, kaynak, bolum_no);
+create index if not exists cevaplar_soru_idx on public.cevaplar(soru_id);
+
+-- Setin dersi boşsa sorularında en çok geçen ders
+update public.soru_setleri st set ders = x.ders
+from (
+  select distinct on (set_id) set_id, ders from public.sorular
+  where ders is not null group by set_id, ders order by set_id, count(*) desc
+) x
+where x.set_id = st.id and st.ders is null;
+
+-- Ders ve konu bazında soru havuzu: kaç soru var, kaçı en az bir kez çözüldü
+create or replace view public.v_konu_havuz with (security_invoker = true) as
+select s.user_id, s.ders, s.konu,
+       count(*) as soru,
+       count(*) filter (where exists (
+         select 1 from public.cevaplar c where c.soru_id = s.id and c.isaretlenen is not null)) as cozulen,
+       count(*) filter (where s.dogru_cevap is null) as anahtarsiz
+from public.sorular s
+group by s.user_id, s.ders, s.konu;
+grant select on public.v_konu_havuz to authenticated, service_role;
+
+-- Ders ve konu bazında tüm zamanların toplamı (ders sayfası; satır sınırına takılmaz)
+create or replace view public.v_konu_toplam with (security_invoker = true) as
+select user_id, ders, konu,
+       sum(toplam) as toplam, sum(dogru) as dogru, sum(yanlis) as yanlis, sum(bos) as bos
+from public.v_konu_performans
+group by user_id, ders, konu;
+grant select on public.v_konu_toplam to authenticated, service_role;
