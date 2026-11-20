@@ -112,7 +112,8 @@ export default function CozumEkrani({
       kayitlar.current.add(istek);
       istek.finally(() => kayitlar.current.delete(istek)).catch(() => {});
       const cevap = await istek;
-      const veri = await cevap.json();
+      const veri = await cevap.json().catch(() => null);
+      if (!veri) throw new Error("Oturum süresi dolmuş olabilir, sayfayı yenileyip tekrar dene.");
       if (!cevap.ok) throw new Error(veri.hata || "Cevap kaydedilemedi.");
 
       if (anlik && !onceden) {
