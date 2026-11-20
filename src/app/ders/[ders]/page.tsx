@@ -63,10 +63,17 @@ export default async function DersSayfasi({ params }: { params: Promise<{ ders: 
     k.yanlis += Number(p.yanlis);
     k.bos += Number(p.bos);
   }
-  const sira = new Map(tanim.konular.map((k, i) => [k, i]));
-  const konuListesi = [...konular.values()]
-    .filter((k) => k.soru > 0)
-    .sort((a, b) => (sira.get(a.konu) ?? 999) - (sira.get(b.konu) ?? 999));
+  // Konu listesi kitabın bölümlerine göre (varsa); müfredattaki her başlık görünür,
+  // müfredat dışı kalan etiketler sonda "Diğer" altında
+  const bos = (konu: string): KonuSatiri => ({ konu, soru: 0, cozulen: 0, toplam: 0, dogru: 0, yanlis: 0, bos: 0 });
+  const gruplar = (tanim.bolumler ?? [{ baslik: "", konular: tanim.konular }]).map((b) => ({
+    baslik: b.baslik,
+    satirlar: b.konular.map((k) => konular.get(k) ?? bos(k)),
+  }));
+  const bilinen = new Set(tanim.konular);
+  const diger = [...konular.values()].filter((k) => !bilinen.has(k.konu) && k.soru > 0);
+  if (diger.length) gruplar.push({ baslik: "Diğer", satirlar: diger });
+  const konuListesi = gruplar.flatMap((g) => g.satirlar);
 
   const toplamSoru = konuListesi.reduce((a, k) => a + k.soru, 0);
   const cozulen = konuListesi.reduce((a, k) => a + k.cozulen, 0);
@@ -180,12 +187,38 @@ export default async function DersSayfasi({ params }: { params: Promise<{ ders: 
 
           <section className="kart">
             <h2 className="font-semibold">Konular</h2>
-            <p className="mb-3 text-xs text-silik">Konuya dokun, o konudan 20 soruluk deneme başlat</p>
-            <ul className="divide-y divide-cizgi">
-              {konuListesi.map((k) => (
-                <KonuSatir key={k.konu} ders={ders} k={k} />
-              ))}
-            </ul>
+            <p className="mb-3 text-xs text-silik">
+              {tanim.kaynak ? `${tanim.kaynak} başlıkları · ` : ""}
+              &quot;Çöz&quot; o konudan 20 soruluk deneme başlatır
+            </p>
+            <div className="space-y-2">
+              {gruplar.map((g) => {
+                const soru = g.satirlar.reduce((a, k) => a + k.soru, 0);
+                const coz = g.satirlar.reduce((a, k) => a + k.cozulen, 0);
+                const liste = (
+                  <ul className="divide-y divide-cizgi">
+                    {g.satirlar.map((k) => (
+                      <KonuSatir key={k.konu} ders={ders} k={k} />
+                    ))}
+                  </ul>
+                );
+                if (!g.baslik) return <div key="tek">{liste}</div>;
+                return (
+                  <details key={g.baslik} className="group rounded-xl border border-cizgi bg-kart2">
+                    <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-3">
+                      <span className="text-silik transition group-open:rotate-90" aria-hidden>
+                        ▸
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-medium">{g.baslik}</span>
+                      <span className="shrink-0 text-xs text-silik tabular-nums">
+                        {g.satirlar.length} konu · {coz}/{soru} soru
+                      </span>
+                    </summary>
+                    <div className="border-t border-cizgi px-3">{liste}</div>
+                  </details>
+                );
+              })}
+            </div>
           </section>
         </>
       )}
@@ -194,6 +227,14 @@ export default async function DersSayfasi({ params }: { params: Promise<{ ders: 
 }
 
 function KonuSatir({ ders, k }: { ders: string; k: KonuSatiri }) {
+  if (k.soru === 0) {
+    return (
+      <li className="flex items-center gap-3 py-2.5 opacity-50">
+        <p className="min-w-0 flex-1 truncate text-sm">{k.konu}</p>
+        <span className="shrink-0 text-xs text-silik">soru yok</span>
+      </li>
+    );
+  }
   const oran = k.toplam ? k.dogru / k.toplam : null;
   const bilgi = oran === null ? null : BAND_BILGI[band(oran)];
   return (

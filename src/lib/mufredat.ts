@@ -12,11 +12,25 @@
  * branşının, tıbbi genetik ve moleküler biyoloji ise Biyokimya branşının
  * altında konu olarak yer alır.
  *
+ * KONU BAŞLIKLARI: Kullanıcı tekrarlarını TUSDATA "Şampiyonların Notu" kitaplarından
+ * yapıyor. Her dersin konu listesi o dersin Şampiyonların Notu içindekiler sayfasına
+ * göre yazılır (kitap edinildikçe ders ders güncellenir; güncellenmiş derste `kaynak`
+ * alanı dolu). Liste değişince o dersin mevcut soruları da yeni başlıklara taşınmalı.
+ *
  * Claude'a bu liste verilir ve her soruyu buradaki bir konuya oturtması istenir.
  * Konu eklemek/çıkarmak için yalnızca bu dosyayı düzenlemen yeterli.
  */
 
-export type Ders = { ders: string; grup: "Temel Bilimler" | "Klinik Bilimler"; konular: string[] };
+export type Ders = {
+  ders: string;
+  grup: "Temel Bilimler" | "Klinik Bilimler";
+  /** Konu listesi (etiketleme bunu kullanır). bolumler varsa ondan türetilir. */
+  konular: string[];
+  /** Konu başlıklarının alındığı kitap (örn. "Şampiyonların Notu"); yoksa genel liste */
+  kaynak?: string;
+  /** Kitaptaki ana bölümler (Viroloji, Parazitoloji ...) ve altındaki konular */
+  bolumler?: { baslik: string; konular: string[] }[];
+};
 
 export const MUFREDAT: Ders[] = [
   {
@@ -80,64 +94,119 @@ export const MUFREDAT: Ders[] = [
     ],
   },
   {
-    // TUSDATA "Tüm TUS Soruları - Mikrobiyoloji ve Enfeksiyon Hastalıkları" (35. baskı, 2025)
-    // içindekiler sayfasındaki bölümler. Çok kısa bölümler komşusuyla birleştirildi
-    // (örn. Riketsiyalar + Coxiella). Yorumdaki sayılar kitabın sayfa aralıklarıdır.
+    // TUSDATA "Şampiyonların Notu - Mikrobiyoloji" içindekiler sayfasındaki başlıklar
+    // (kullanıcının tekrar kitabı). Sıra ve yazım kitaptaki gibi.
     ders: "Mikrobiyoloji",
     grup: "Temel Bilimler",
-    konular: [
-      // Temel Mikrobiyoloji
-      "Mikroorganizmaların Sınıflandırılması", //   1-5
-      "Bakteri Hücresinin Yapısı", //               6-16
-      "Bakteri Metabolizması ve Üreme", //         17-22
-      "Bakteri Genetiği", //                       23-28
-      "Bakteri Toksinleri", //                     29-35
-      "Dezenfeksiyon ve Sterilizasyon", //         36-41
-      "Antimikrobiyaller", //                      42-55
-      // Bakteriyoloji
-      "Gram Pozitif Koklar", //                    56-83
-      "Bacillus ve Clostridium", //                84-94
-      "Sporsuz Gram Pozitif Basiller", //          95-106
-      "Gram Negatif Diplokoklar", //              107-114
-      "Enterobakteriler", //                      115-126
-      "Vibrio, Campylobacter ve Helicobacter", // 127-138
-      "Gram Negatif Kokobasiller", //             139-155
-      "Non-Fermentatif Gram Negatif Basiller", // 156-161
-      "Çeşitli Gram Negatif Bakteriler", //       162-169
-      "Mikobakteriler", //                        170-181
-      "Spiroketler", //                           182-191
-      "Riketsiya ve Coxiella", //                 192-193
-      "Klamidyalar", //                           194-197
-      "Mikoplazmalar", //                         198-201
-      "Anaerop Bakteriler", //                    202-204
-      "Mikrobiyolojik Örnek Alma", //             205-209
-      // Mikoloji
-      "Temel Mikoloji", //                        210-212
-      "Yüzeyel ve Kutanöz Mikozlar", //           213-221
-      "Subkutanöz ve Endemik Mikozlar", //        222-230
-      "Fırsatçı Mikozlar", //                     231-253
-      "Antifungal İlaçlar", //                    254-259
-      // Parazitoloji
-      "Kan ve Doku Protozoonları", //             260-275
-      "Gastrointestinal ve Ürogenital Protozoonlar", // 276-285
-      "Sestodlar", //                             286-292
-      "Trematodlar", //                           293-298
-      "Nematodlar", //                            299-307
-      // Viroloji
-      "Genel Viroloji", //                        308-312
-      "Herpesvirüsler", //                        313-340
-      "Poks, Papova, Adeno ve Parvovirüsler", //  341-353
-      "Ortomikso ve Paramiksovirüsler", //        354-367
-      "Diğer RNA Virüsleri", //                   368-386 (Bunya, Rabdo, Pikorna, Calici, Reo, Corona, Toga, Flavi)
-      "HIV ve Retrovirüsler", //                  387-398
-      "Hepatit Virüsleri", //                     399-415
-      "Antiviral Tedavi", //                      416-417
-      // Temel İmmünoloji
-      "İmmün Sistem Organları, Hücreleri ve Sitokinler", // 418-444
-      "Antijen, Antikor ve Kompleman", //         445-453
-      "MHC ve Bağışık Yanıt", //                  454-457
-      "Aşırı Duyarlılık ve Diğer İmmünoloji Konuları", // 458-464
+    kaynak: "Şampiyonların Notu",
+    bolumler: [
+      {
+        baslik: "Temel Bakteriyoloji",
+        konular: [
+          "Mikroorganizmaların Sınıflandırılması",
+          "Bakterilerin Tanılama Yöntemi",
+          "Bakteri Hücrelerinin Yapısı",
+          "Bakterilerin Metabolizması ve Üretimi",
+          "Bakteri Genetiği",
+          "Bakteri Patogenezi",
+          "Normal Vücut Florası (Mikrobiyota)",
+          "Sterilizasyon ve Dezenfeksiyon Yöntemleri",
+          "Antimikrobiyaller ve Aşılar",
+        ],
+      },
+      {
+        baslik: "Klinik Bakteriyoloji",
+        konular: [
+          "Gram Pozitif Koklar",
+          "Gram Pozitif Sporlu Basiller",
+          "Sporlu Gram Pozitif Anaerop Basiller",
+          "Sporsuz Gram Pozitif Aerop Basiller",
+          "Gram Negatif Diplokoklar",
+          "Gram Negatif Enterik Bakteriler (Enterobacteriaceae)",
+          "Oksidaz Pozitif Kıvrık Gram Negatif Basiller",
+          "Gram Negatif Kokobasiller",
+          "Non-fermentatif Gram Negatif Basiller",
+          "Çeşitli Gram Negatif Bakteriler",
+          "Mikobakteriler",
+          "Spiroketler",
+          "Borelyalar",
+          "Leptospiralar",
+          "Mikoplazmalar ve Üreplazmalar",
+          "Riketsiyalar",
+          "Coxiella, Anaplasma",
+          "Klamidyalar",
+          "Çeşitli Anaerop Bakteriler",
+        ],
+      },
+      {
+        baslik: "Mikoloji",
+        konular: [
+          "Genel Mikoloji",
+          "Yüzeyel ve Kutanöz Mikozlar",
+          "Subkutan (Deri Altı) Mikozlar",
+          "Endemik (Sistemik, Derin) Dimorfik Mikozlar",
+          "Fırsatçı Mikozlar",
+          "Antifungal İlaçlar",
+        ],
+      },
+      {
+        baslik: "Viroloji",
+        konular: [
+          "Genel Viroloji",
+          "Antiviral İlaçlar ve Aşılar",
+          "DNA Virüsleri",
+          "RNA Virüsleri",
+          "Negatif Kutuplu RNA Virüsleri",
+          "Pozitif Kutuplu RNA Virüsleri",
+          "Retrovirüsler",
+          "Primer Hepatotrop Virüsler",
+          "Prionlar ve Neden Olduğu Hastalıklar",
+          "Serolojik Testler",
+          "Enfeksiyon Hastalıklarında İstatistik",
+        ],
+      },
+      {
+        baslik: "Parazitoloji",
+        konular: [
+          "Genel Parazitoloji",
+          "Kan ve Doku Protozoonları",
+          "Gastrointestinal Sistem Protozoonları",
+          "Ürogenital Sistem Protozoonları",
+          "Helmintler",
+          "Sestodların Genel Özellikleri",
+          "Trematodların Genel Özellikleri",
+          "Safra Yolu Trematodları",
+          "Venalar İçinde Yaşayan Trematodlar",
+          "Akciğer Trematodu",
+          "Gastrointestinal Sistem Trematodları",
+          "Nematodların Genel Özellikleri",
+          "İntestinal Nematodlar",
+          "Kancalı Kurtlar (Çengelli Solucanlar)",
+          "İntestinal ve Doku Nematodları",
+          "Doku Nematodları",
+          "Filaryalar",
+        ],
+      },
+      {
+        baslik: "İmmünoloji",
+        konular: [
+          "Lenfoid Organlar",
+          "İmmünite",
+          "Sitokinler",
+          "Bağışık Yanıt Hücrelerinin Olgunlaşma Süreci",
+          "Bağışık Yanıt Hücrelerinin Özellikleri",
+          "Büyük Doku Uygunluk Antijenleri",
+          "Antijen Sunumu",
+          "Antijen",
+          "Antikor",
+          "Kompleman Sistemi",
+          "Aşırı Duyarlılık Reaksiyonları",
+        ],
+      },
     ],
+    get konular() {
+      return this.bolumler!.flatMap((b) => b.konular);
+    },
   },
   {
     ders: "Patoloji",

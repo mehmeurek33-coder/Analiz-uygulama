@@ -74,6 +74,22 @@ select id from auth.users order by created_at limit 1;
 8. **Kullanıcıya özet ver:** eklenen soru sayısı, ders/konu dağılımı, anahtarsız ya da atlanan
    sorular. Panelde set "hazır" olarak görünür.
 
+## Konu başlıkları: Şampiyonların Notu
+
+Kullanıcı tekrarlarını TUSDATA **Şampiyonların Notu** kitaplarından yapıyor. Her dersin konu listesi
+(`src/lib/mufredat.ts`) o dersin Şampiyonların Notu **içindekiler** sayfasına göre yazılır: başlıklar
+kitaptaki sırayla ve yazımla, ana bölümler (`bolumler`, örn. Viroloji, Parazitoloji) korunur,
+`kaynak: "Şampiyonların Notu"` işaretlenir. Kullanıcı kitapları zamanla edinip içindekiler
+fotoğrafını gönderecek; gönderdiğinde:
+
+1. `mufredat.ts`'te o dersin bloğunu yeni başlıklarla değiştir (Mikrobiyoloji bloğu örnek).
+2. O dersteki mevcut soruları yeni başlıklara taşı: eski konu → yeni başlık bire bir eşleme,
+   bölünen konularda anahtar kelime (kök, sonra doğru şık), kalanları tek tek okuyup elle ata.
+   Kaldırılan geniş konu adı anlamlıysa `alt_konu`'da kalsın. Hepsini tek `update` ile yaz.
+3. Ders sayfası konu listesini bölüm bölüm gösterir; soru düşmeyen başlıklar "soru yok" görünür.
+
+Durum: **Mikrobiyoloji** güncel (6 bölüm, 73 başlık). Diğer 10 ders henüz genel liste.
+
 ## Analiz ("analizimi yap")
 
 Sorgular `v_konu_performans` üzerinde çalışır. Bitirilmiş denemelerin tüm cevapları ve soru
