@@ -80,6 +80,15 @@ export default function CozumEkrani({
   }, []);
 
   const isaretli = useMemo(() => Object.values(cevaplar).filter(Boolean).length, [cevaplar]);
+  // Boş bırakılıp geçilen (son cevaplanan sorudan önceki işaretsiz) sorular
+  const atlanan = useMemo(() => {
+    let son = -1;
+    sorular.forEach((s, i) => {
+      if (cevaplar[s.soruId] || bakildi[s.soruId]) son = i;
+    });
+    return sorular.filter((s, i) => i < son && !cevaplar[s.soruId] && !bakildi[s.soruId]).length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cevaplar, bakildi]);
   const dogruSayisi = Object.values(sonuclar).filter((s) => s.dogru === true).length;
   const yanlisSayisi = Object.values(sonuclar).filter((s) => s.dogru === false).length;
 
@@ -448,8 +457,8 @@ export default function CozumEkrani({
               {anlik
                 ? isaretli === 0 && !Object.values(bakildi).some(Boolean)
                   ? "Hiç soru çözmedin: bu tur kaydedilmeden kapanacak."
-                  : "Çözmediğin sorular istatistiğe girmez; bitirmeden çıkarsan da kaldığın yerden devam edersin."
-                : `${sorular.length - isaretli > 0 ? `${sorular.length - isaretli} soru boş sayılacak. ` : ""}Bitirdiğinde doğru cevaplar ve analiz gösterilir.`}
+                  : `${atlanan > 0 ? `Atladığın ${atlanan} soru boş sayılıp tekrar listene (Yanlışlarım) girecek. ` : ""}Hiç ulaşmadığın sorular istatistiğe girmez. Bitirmeden çıkarsan kaldığın yerden devam edersin.`
+                : `${sorular.length - isaretli > 0 ? `${sorular.length - isaretli} soru boş sayılıp tekrar listene girecek. ` : ""}Bitirdiğinde doğru cevaplar ve analiz gösterilir.`}
             </p>
             {genelHata && <p className="text-sm text-kotu">{genelHata}</p>}
             <div className="flex gap-2">

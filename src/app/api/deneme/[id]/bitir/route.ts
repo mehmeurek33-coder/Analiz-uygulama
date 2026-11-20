@@ -20,7 +20,7 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
 
   const { data: cevaplar, error } = await supabase
     .from("cevaplar")
-    .select("id, isaretlenen, aciklama_bakildi, soru_id, sorular(dogru_cevap)")
+    .select("id, sira, isaretlenen, aciklama_bakildi, soru_id, sorular(dogru_cevap)")
     .eq("deneme_id", id)
     .eq("user_id", user.id);
 
@@ -65,11 +65,30 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
   const dogru = gruplar.dogru.length;
   const yanlis = gruplar.yanlis.length;
 
+  // Boş bırakılıp geçilen sorular: boş sayılır ve tekrar listesine (Yanlışlarım) girer.
+  // Deneme modunda işaretsiz her soru; soru bankasında yalnızca son cevaplanan sorudan
+  // önce kalanlar (sonrakilere hiç ulaşılmamıştır).
+  const sonSira = Math.max(
+    -1,
+    ...cevaplar.filter((c) => c.isaretlenen != null || c.aciklama_bakildi).map((c) => c.sira),
+  );
+  const gecilen = cevaplar
+    .filter((c) => c.isaretlenen == null && !c.aciklama_bakildi && (!deneme?.anlik || c.sira < sonSira))
+    .map((c) => c.id);
+  const simdi = new Date().toISOString();
+  for (let i = 0; i < gecilen.length; i += 150) {
+    await supabase
+      .from("cevaplar")
+      .update({ bos_gecildi: true, cevaplandi_at: simdi })
+      .in("id", gecilen.slice(i, i + 150))
+      .eq("user_id", user.id);
+  }
+
   await supabase
     .from("denemeler")
-    .update({ bitti_at: new Date().toISOString() })
+    .update({ bitti_at: simdi })
     .eq("id", id)
     .eq("user_id", user.id);
 
-  return NextResponse.json({ dogru, yanlis, bos, toplam: cevaplar.length });
+  return NextResponse.json({ dogru, yanlis, bos, gecilen: gecilen.length, toplam: cevaplar.length });
 }

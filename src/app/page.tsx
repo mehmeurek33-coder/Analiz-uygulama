@@ -231,12 +231,6 @@ export default async function Panel() {
           </ul>
         )}
       </section>
-
-      <p className="text-center text-xs text-silik">
-        <Link href="/yedek" className="hover:text-metin hover:underline">
-          Yedekler
-        </Link>
-      </p>
     </div>
   );
 }

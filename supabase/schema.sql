@@ -443,3 +443,55 @@ left join lateral (
 where d.set_id is not null
 order by d.user_id, d.set_id, d.created_at desc;
 grant select on public.v_set_ilerleme to authenticated, service_role;
+
+-- ---------------------------------------------------------------- göç 8: atlanan boşlar
+-- Test bitince boş bırakılıp geçilen soru: boş sayılır ve tekrar listesine girer.
+--   Deneme modu: işaretsiz kalan bütün sorular.
+--   Soru bankası: son cevaplanan sorudan ÖNCE kalan işaretsizler (atlanmış); sonrakiler
+--   hiç ulaşılmamış sayılır, istatistiğe girmez.
+alter table public.cevaplar add column if not exists bos_gecildi boolean not null default false;
+
+create or replace view public.v_konu_performans
+with (security_invoker = true) as
+select
+  c.user_id,
+  d.id                                   as deneme_id,
+  date_trunc('day', coalesce(case when d.anlik then c.cevaplandi_at end, d.bitti_at, d.basladi_at))::date as gun,
+  coalesce(s.ders, 'Belirsiz')           as ders,
+  coalesce(s.konu, 'Belirsiz')           as konu,
+  s.alt_konu,
+  count(*)                               as toplam,
+  count(*) filter (where c.dogru is true)                        as dogru,
+  count(*) filter (where c.dogru is false and c.isaretlenen is not null) as yanlis,
+  count(*) filter (where c.isaretlenen is null)                  as bos,
+  round(avg(c.sure_sn)::numeric, 1)      as ort_sure_sn
+from public.cevaplar c
+join public.denemeler d on d.id = c.deneme_id
+join public.sorular   s on s.id = c.soru_id
+where (not d.anlik and d.bitti_at is not null)
+   or (d.anlik and (c.isaretlenen is not null or c.aciklama_bakildi or c.bos_gecildi))
+group by 1,2,3,4,5,6;
+grant select on public.v_konu_performans to authenticated, service_role;
+
+create or replace view public.v_son_cevap with (security_invoker = true) as
+select distinct on (c.user_id, c.soru_id)
+  c.user_id, c.soru_id, s.ders, s.konu,
+  case when c.isaretlenen is null then false else c.dogru end as dogru,
+  c.cevaplandi_at, c.emin_degil
+from public.cevaplar c
+join public.sorular s on s.id = c.soru_id
+where (c.isaretlenen is not null and c.dogru is not null) or c.aciklama_bakildi or c.bos_gecildi
+order by c.user_id, c.soru_id, c.cevaplandi_at desc nulls last;
+grant select on public.v_son_cevap to authenticated, service_role;
+-- Geçmiş bitmiş testlere aynı kuralı uygula
+with son as (
+  select c.deneme_id, max(c.sira) filter (where c.isaretlenen is not null or c.aciklama_bakildi) as son_sira
+  from public.cevaplar c group by c.deneme_id
+)
+update public.cevaplar c
+   set bos_gecildi = true, cevaplandi_at = coalesce(c.cevaplandi_at, d.bitti_at)
+  from public.denemeler d, son
+ where d.id = c.deneme_id and son.deneme_id = c.deneme_id
+   and d.bitti_at is not null and c.isaretlenen is null and not c.aciklama_bakildi
+   and (not d.anlik or c.sira < son.son_sira)
+returning c.id;
