@@ -141,6 +141,18 @@ create policy "kendi denemeleri" on public.denemeler
 create policy "kendi cevaplari" on public.cevaplar
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+-- Tablo yetkileri: yeni Supabase projeleri public semadaki yeni tablolara
+-- anon/authenticated icin otomatik yetki vermiyor. RLS satirlari suzer,
+-- ama once rolun tabloya erisim yetkisi olmali. anon'a bilerek yetki verilmez.
+grant usage on schema public to authenticated, service_role;
+grant select, insert, update, delete
+  on public.soru_setleri, public.sorular, public.denemeler, public.cevaplar
+  to authenticated;
+grant select, update on public.kullanici_profil to authenticated;
+grant all
+  on public.soru_setleri, public.sorular, public.denemeler, public.cevaplar, public.kullanici_profil
+  to service_role;
+
 -- ====================================================================
 --  Storage  -  PDF'ler icin ozel kova
 -- ====================================================================
@@ -196,3 +208,5 @@ join public.denemeler d on d.id = c.deneme_id
 join public.sorular   s on s.id = c.soru_id
 where d.bitti_at is not null
 group by 1,2,3,4,5,6;
+
+grant select on public.v_konu_performans to authenticated, service_role;
