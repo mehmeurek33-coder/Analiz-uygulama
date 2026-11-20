@@ -45,6 +45,9 @@ select id from auth.users order by created_at limit 1;
    kullanıcıdan iste. **Cevabı kendin çözüp yazma.** Yanlış anahtar bütün analizi bozar.
    Anahtar yoksa `dogru_cevap` boş kalır. `aciklama` alanına kitabın kendi açıklamasını koy; kitapta yoksa boş bırak.
 6. **JSON'u scratchpad'e yaz.** Biçim `scripts/soru-ekle.ts` başındaki yorumda.
+   - **Kaynağı, dersi ve bölümleri PDF'ten kendin çıkar** (kapak, iç kapak, sayfa başlıkları,
+     içindekiler). Kullanıcıya sorma; yalnızca PDF'ten gerçekten anlaşılmıyorsa sor. Kullanıcıya
+     verdiğin özette ne olarak tanıdığını yaz ki yanlışsa düzeltebilsin.
    - **Düzen ders → kaynak → bölüm.** Her yeni sette `kaynak` zorunlu (kitap/seri adı, aynı seride
      hep aynı yaz: `"Tüm TUS Soruları"`, `"Meditus"` ...). `ders` setin dersi (yoksa soruların en
      sık dersi alınır), `bolum_no` kitap içindeki sıra. Bölüm bölüm gelen kitapta her bölüm ayrı set.
@@ -118,7 +121,7 @@ Raporlarken:
   GitHub `mehmeurek33-coder/Analiz-uygulama`, üretim dalı `claude/question-practice-analyzer-9xu016`.
   Bu dala push otomatik yayınlanır. Fonksiyon bölgesi `vercel.json` ile Dublin (`dub1`), veritabanına yakın.
 - **Yüklü kitap:** TUSDATA Tüm TUS Soruları – Mikrobiyoloji (35. baskı): 72 bölüm, 1492 soru, 1360'ında
-  kitap açıklaması var. Set adları `TTS Mikrobiyoloji · NN Bölüm adı`; panel `·` öncesine göre kitap kitap gruplar.
+  kitap açıklaması var. Set adları `TTS Mikrobiyoloji · NN Bölüm adı`; ders `Mikrobiyoloji`, kaynak `Tüm TUS Soruları`.
   Yedek tablo `public.aktarim_bekleyen` (RLS açık, yetki yok); silinebilir ama zararı yok.
 - **Düzen:** Panel = 11 ders kartı + tüm dersler için genel deneme (rastgele / zayıf konular /
   yanlışlarım). `/ders/<Ders>` = o dersin istatistikleri, derse özel denemeler, kaynaklar (her kaynak
