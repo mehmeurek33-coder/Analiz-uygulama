@@ -8,7 +8,15 @@ export type Ilerleme = {
   cevaplanan: number;
   dogru: number;
   bitti_at: string | null;
+  /** En çok soru çözülen bitmiş tur (tekrar çözüm yarıda kalsa da görünür) */
+  son_bitis_at?: string | null;
+  son_bitis_cevaplanan?: number | null;
+  son_bitis_dogru?: number | null;
+  bitis_sayisi?: number | null;
 };
+
+export const ILERLEME_ALANLARI =
+  "set_id, soru_sayisi, cevaplanan, dogru, bitti_at, son_bitis_at, son_bitis_cevaplanan, son_bitis_dogru, bitis_sayisi";
 
 /** "TTS Mikrobiyoloji · 09 Gram Pozitif Koklar" -> "09 Gram Pozitif Koklar" */
 export function bolumAdi(ad: string) {
@@ -27,7 +35,7 @@ export default function SetListesi({
   ilerleme: Map<string, Ilerleme>;
   acik?: boolean;
 }) {
-  const biten = setler.filter((x) => ilerleme.get(x.id)?.bitti_at).length;
+  const biten = setler.filter((x) => ilerleme.get(x.id)?.son_bitis_at || ilerleme.get(x.id)?.bitti_at).length;
   const cevap = setler.reduce((a, x) => a + Number(ilerleme.get(x.id)?.cevaplanan ?? 0), 0);
   const toplam = setler.reduce((a, x) => a + x.soru_sayisi, 0);
 
@@ -88,22 +96,51 @@ export default function SetListesi({
   );
 }
 
-/** Bölümün durumu: başlanmadı / yüzde kaç çözüldü / tamamlandı + doğru oranı. */
+/**
+ * Bölümün durumu: başlanmadı / yüzde kaç çözüldü / tamamlandı + doğru oranı.
+ * Tamamlanmış bölüm tekrar çözülürken yarıda kalırsa ikisi birden görünür.
+ */
 function SetIlerleme({ soruSayisi, il }: { soruSayisi: number; il?: Ilerleme }) {
   if (!il) {
     return <p className="text-xs text-silik">{soruSayisi} soru · başlanmadı</p>;
   }
-  const cevap = Number(il.cevaplanan);
   const toplam = Number(il.soru_sayisi) || soruSayisi;
+  const tamam = il.son_bitis_at ? Number(il.son_bitis_cevaplanan ?? 0) : 0;
+  const tamamDogru = tamam ? Math.round((Number(il.son_bitis_dogru ?? 0) / tamam) * 100) : 0;
+  const kez = Number(il.bitis_sayisi ?? 0);
+  const tamamSatiri = il.son_bitis_at ? (
+    <p className="text-xs tabular-nums">
+      <span className="font-semibold text-iyi">✓ Tamamlandı</span>
+      <span className="text-silik">
+        {" "}
+        · {tamam}/{toplam} soru · %{tamamDogru} doğru{kez > 1 ? ` · ${kez} tur` : ""}
+      </span>
+    </p>
+  ) : null;
+
+  // Son tur bitmişse ya da yeni tura hiç başlanmadıysa yalnızca tamamlanma bilgisi
+  const cevap = Number(il.cevaplanan);
+  if (tamamSatiri && (il.bitti_at || cevap === 0)) {
+    return (
+      <div className="mt-1">
+        {tamamSatiri}
+        {!il.bitti_at && <p className="text-xs text-silik">Tekrar turu açık · henüz soru çözülmedi</p>}
+      </div>
+    );
+  }
+
   const yuzde = Math.round((cevap / toplam) * 100);
   const dogruOran = cevap ? Math.round((Number(il.dogru) / cevap) * 100) : 0;
   return (
     <div className="mt-1">
+      {tamamSatiri}
       <p className="text-xs tabular-nums">
         {il.bitti_at ? (
           <span className="font-semibold text-iyi">✓ Tamamlandı</span>
         ) : (
-          <span className="font-semibold text-vurgu">%{yuzde} çözüldü</span>
+          <span className="font-semibold text-vurgu">
+            {tamamSatiri ? "Tekrar: " : ""}%{yuzde} çözüldü
+          </span>
         )}
         <span className="text-silik">
           {" "}

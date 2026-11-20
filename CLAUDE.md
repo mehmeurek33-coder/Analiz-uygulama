@@ -117,9 +117,9 @@ Durum: **Mikrobiyoloji** güncel (6 bölüm, 73 başlık). Diğer 10 ders henüz
 
 ## Analiz ("analizimi yap")
 
-Sorgular `v_konu_performans` üzerinde çalışır. Bitirilmiş denemelerin tüm cevapları ve soru
-bankası (anlık) oturumlarının o ana kadar cevaplanmış soruları sayılır; boş sayısı yalnızca
-bitirilmiş denemelerden gelir.
+Sorgular `v_konu_performans` üzerinde çalışır. Deneme modunda bitirilmiş denemelerin tüm cevapları
+(işaretsiz = boş); soru bankası (anlık) modunda yalnızca cevaplanan sorular ve işaretlenmeden
+açıklamasına bakılanlar (`aciklama_bakildi`, boş sayılır). Anlık modda dokunulmayan soru sayılmaz.
 
 ```sql
 -- dönem özeti (son 7 gün; 30 gün için 29)
@@ -169,7 +169,12 @@ Raporlarken:
   ayrı katlanır liste, bölüm bölüm ilerleme) ve konu listesi (konu konu deneme). Setin yeri
   `soru_setleri.ders`, `kaynak`, `bolum_no` kolonlarından gelir.
 - **Yanlışlarım (tekrar listesi):** son cevabı yanlış olan sorular + doğru olsa da "emin değilim"
-  işaretlenenler (`cevaplar.emin_degil`, `v_son_cevap`). Sonradan emin olarak doğru yapılan soru düşer.
+  işaretlenenler (`cevaplar.emin_degil`) + işaretlemeden açıklamasına bakılanlar
+  (`cevaplar.aciklama_bakildi`, `/api/aciklama-bak`; soru kilitlenir). `v_son_cevap`. Sonradan emin
+  olarak doğru yapılan soru düşer.
+- **Tekrar çözüm:** `v_set_ilerleme` son tura ek olarak en çok soru çözülen bitmiş turu
+  (`son_bitis_*`, `bitis_sayisi`) verir; tekrar turu yarıda kalsa da "Tamamlandı" görünür.
+  Hiç soru çözülmeden bitirilen anlık tur kaydedilmez (bitir rotası siler, `silindi: true`).
 - **Yedek:** Vercel cron (`vercel.json`, 3 günde bir 03:17 TR) → `GET /api/yedek` (`CRON_SECRET`) →
   `src/lib/yedek.ts`: her tablo `yedekler/<YYYY-MM-DD_HHmm>/<tablo>.json.gz` (gizli depo, son 10).
   `/yedek` sayfasında liste, indirme, "Şimdi yedekle". Geri yükleme: kullanıcı dosyaları gönderir,

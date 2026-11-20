@@ -52,12 +52,15 @@ export async function POST(request: Request) {
 
   const { data: satir } = await supabase
     .from("cevaplar")
-    .select("id, isaretlenen, sorular(dogru_cevap, aciklama)")
+    .select("id, isaretlenen, aciklama_bakildi, sorular(dogru_cevap, aciklama)")
     .eq("deneme_id", denemeId)
     .eq("soru_id", soruId)
     .eq("user_id", user.id)
     .single();
   if (!satir) return NextResponse.json({ hata: "Soru bu denemede yok." }, { status: 404 });
+  if (satir.aciklama_bakildi && !satir.isaretlenen) {
+    return NextResponse.json({ hata: "Açıklamasına bakılan soru boş sayılır." }, { status: 409 });
+  }
 
   const soru = satir.sorular as unknown as { dogru_cevap: string | null; aciklama: string | null } | null;
   const dogruCevap = soru?.dogru_cevap ?? null;

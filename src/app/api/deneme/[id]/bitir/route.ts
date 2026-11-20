@@ -11,14 +11,28 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
 
   const supabase = await sunucuIstemcisi();
 
+  const { data: deneme } = await supabase
+    .from("denemeler")
+    .select("anlik")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+
   const { data: cevaplar, error } = await supabase
     .from("cevaplar")
-    .select("id, isaretlenen, soru_id, sorular(dogru_cevap)")
+    .select("id, isaretlenen, aciklama_bakildi, soru_id, sorular(dogru_cevap)")
     .eq("deneme_id", id)
     .eq("user_id", user.id);
 
   if (error) return NextResponse.json({ hata: error.message }, { status: 500 });
   if (!cevaplar?.length) return NextResponse.json({ hata: "Deneme bulunamadı." }, { status: 404 });
+
+  // Soru bankası turunda hiç soru çözülmediyse turu kaydetme: sil (önceki tamamlanmış tur
+  // "Tamamlandı" olarak kalır, boş tur onu gölgelemez)
+  if (deneme?.anlik && !cevaplar.some((c) => c.isaretlenen != null || c.aciklama_bakildi)) {
+    await supabase.from("denemeler").delete().eq("id", id).eq("user_id", user.id);
+    return NextResponse.json({ silindi: true });
+  }
 
   // Sonuçları üç grupta topla, her grubu tek istekle yaz (200 soruda 200 istek yerine 3)
   const gruplar: { dogru: string[]; yanlis: string[]; belirsiz: string[] } = { dogru: [], yanlis: [], belirsiz: [] };

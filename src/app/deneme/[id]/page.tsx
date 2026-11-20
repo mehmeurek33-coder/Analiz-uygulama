@@ -32,7 +32,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
 
   const { data: satirlar } = await supabase
     .from("cevaplar")
-    .select(`id, soru_id, sira, isaretlenen, dogru, sure_sn, emin_degil, sorular(${alanlar})`)
+    .select(`id, soru_id, sira, isaretlenen, dogru, sure_sn, emin_degil, aciklama_bakildi, sorular(${alanlar})`)
     .eq("deneme_id", id)
     .order("sira", { ascending: true });
 
@@ -54,7 +54,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
       aciklama_gorsel?: string | null;
     };
     const gorsel = soru?.aciklama_gorsel ? (baglantilar.get(soru.aciklama_gorsel) ?? null) : null;
-    const acik = Boolean(deneme.anlik && s.isaretlenen);
+    const acik = Boolean(deneme.anlik && (s.isaretlenen || s.aciklama_bakildi));
     const anahtar = deneme.anlik
       ? { dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null, aciklamaGorsel: gorsel }
       : null;
@@ -74,6 +74,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
         : null,
       anahtar,
       eminDegil: Boolean(s.emin_degil),
+      aciklamaBakildi: Boolean(s.aciklama_bakildi),
     };
   });
 

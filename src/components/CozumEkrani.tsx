@@ -29,6 +29,8 @@ export type CozumSorusu = {
   anahtar?: { dogruCevap: string | null; aciklama: string | null; aciklamaGorsel?: string | null } | null;
   /** "Emin değilim" işareti: doğru olsa da tekrar listesine girer */
   eminDegil?: boolean;
+  /** İşaretlemeden açıklamasına bakıldı: boş sayılır, kilitli, tekrar listesinde */
+  aciklamaBakildi?: boolean;
 };
 
 /**
@@ -59,6 +61,9 @@ export default function CozumEkrani({
   const [eminDegil, setEminDegil] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(sorular.map((s) => [s.soruId, Boolean(s.eminDegil)])),
   );
+  const [bakildi, setBakildi] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(sorular.map((s) => [s.soruId, Boolean(s.aciklamaBakildi)])),
+  );
   const [bekleyen, setBekleyen] = useState<Record<string, boolean>>({});
   const [hatalar, setHatalar] = useState<Record<string, string>>({});
   const [bitiriliyor, setBitiriliyor] = useState(false);
@@ -80,8 +85,8 @@ export default function CozumEkrani({
 
   // İlk cevaplanmamış soruya kaydır (yarım bırakılan bölüme dönünce)
   useEffect(() => {
-    const ilk = sorular.find((s) => !s.isaretlenen);
-    if (ilk && sorular.some((s) => s.isaretlenen)) {
+    const ilk = sorular.find((s) => !s.isaretlenen && !s.aciklamaBakildi);
+    if (ilk && sorular.some((s) => s.isaretlenen || s.aciklamaBakildi)) {
       document.getElementById(`soru-${ilk.soruId}`)?.scrollIntoView({ block: "start" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,10 +117,51 @@ export default function CozumEkrani({
     }
   }
 
+  /** İşaretlemeden açıklamayı aç: soru boş kalır ve kilitlenir (tekrar listesine girer). */
+  async function bosBirakGor(soru: CozumSorusu) {
+    const id = soru.soruId;
+    if (!soru.anahtar || cevaplar[id] || bakildi[id]) return;
+    setBakildi((b) => ({ ...b, [id]: true }));
+    setSonuclar((s) => ({
+      ...s,
+      [id]: { dogru: null, dogruCevap: soru.anahtar!.dogruCevap, aciklama: soru.anahtar!.aciklama, aciklamaGorsel: soru.anahtar!.aciklamaGorsel },
+    }));
+    setAciklamaAcik((a) => ({ ...a, [id]: true }));
+    const istek = fetch("/api/aciklama-bak", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ denemeId, soruId: id }),
+    });
+    kayitlar.current.add(istek);
+    istek.finally(() => kayitlar.current.delete(istek)).catch(() => {});
+    try {
+      const cevap = await istek;
+      if (!cevap.ok) throw new Error();
+    } catch {
+      setBakildi((b) => ({ ...b, [id]: false }));
+      setSonuclar((s) => {
+        const k = { ...s };
+        delete k[id];
+        return k;
+      });
+      setHatalar((h) => ({ ...h, [id]: "Kaydedilemedi, tekrar dene." }));
+    }
+  }
+
+  /** Açıklamayı aç/kapat. Alttaki düğmeyle kapatınca sayfa sorunun dibinde kalsın. */
+  function aciklamaDegistir(soruId: string, simdi: boolean, alttan = false) {
+    setAciklamaAcik((a) => ({ ...a, [soruId]: !simdi }));
+    if (simdi && alttan) {
+      requestAnimationFrame(() =>
+        document.getElementById(`soru-${soruId}`)?.scrollIntoView({ block: "end" }),
+      );
+    }
+  }
+
   async function isaretle(soru: CozumSorusu, harf: string) {
     const id = soru.soruId;
     if (bekleyen[id]) return;
-    if (anlik && cevaplar[id]) return; // soru bankası modunda cevap kilitli
+    if (anlik && (cevaplar[id] || bakildi[id])) return; // soru bankası modunda cevap kilitli
 
     const yeni = !anlik && cevaplar[id] === harf ? null : harf;
     setCevaplar((c) => ({ ...c, [id]: yeni }));
@@ -183,7 +229,9 @@ export default function CozumEkrani({
       const cevap = await fetch(`/api/deneme/${denemeId}/bitir`, { method: "POST" });
       const veri = await cevap.json();
       if (!cevap.ok) throw new Error(veri.hata || "Bitirilemedi.");
-      router.push(`/sonuc/${denemeId}`);
+      // Hiç soru çözülmeden bitirilen soru bankası turu kaydedilmez
+      if (veri.silindi) router.push("/");
+      else router.push(`/sonuc/${denemeId}`);
     } catch (e) {
       setGenelHata(e instanceof Error ? e.message : "Hata");
       setBitiriliyor(false);
@@ -233,7 +281,9 @@ export default function CozumEkrani({
           {sorular.map((s, i) => {
             const c = cevaplar[s.soruId];
             const r = sonuclar[s.soruId];
-            const sinif = r
+            const sinif = bakildi[s.soruId]
+              ? "border-orta/60 bg-orta/10 text-orta"
+              : r
               ? r.dogru === true
                 ? "border-iyi/60 bg-iyi/15 text-iyi"
                 : r.dogru === false
@@ -269,10 +319,14 @@ export default function CozumEkrani({
             <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-silik">
               <span className="rounded-md bg-kart2 px-2 py-1 font-semibold text-metin">{i + 1}. soru</span>
               {soru.konu && <span className="rounded-md bg-kart2 px-2 py-1">{soru.konu}</span>}
-              {r && (
-                <span className={`font-semibold ${r.dogru ? "text-iyi" : r.dogru === false ? "text-zayif" : "text-silik"}`}>
-                  {r.dogru ? "✓ Doğru" : r.dogru === false ? "✗ Yanlış" : "Cevap anahtarı yok"}
-                </span>
+              {r && bakildi[soru.soruId] ? (
+                <span className="font-semibold text-orta">Boş · açıklamaya bakıldı</span>
+              ) : (
+                r && (
+                  <span className={`font-semibold ${r.dogru ? "text-iyi" : r.dogru === false ? "text-zayif" : "text-silik"}`}>
+                    {r.dogru ? "✓ Doğru" : r.dogru === false ? "✗ Yanlış" : "Cevap anahtarı yok"}
+                  </span>
+                )
               )}
               <button
                 type="button"
@@ -332,19 +386,41 @@ export default function CozumEkrani({
 
             {hatalar[soru.soruId] && <p className="mt-3 text-sm text-kotu">{hatalar[soru.soruId]}</p>}
 
-            {r && (
+            {/* İşaretlenmemiş soru: boş bırakıp açıklamayı görme (yalnızca soru bankası modunda) */}
+            {!r && anlik && soru.anahtar && !secili && (
               <div className="mt-3">
                 <button
                   type="button"
-                  className="text-sm text-vurgu hover:underline"
-                  onClick={() => setAciklamaAcik((a) => ({ ...a, [soru.soruId]: !acik }))}
+                  className="text-sm text-silik hover:text-metin hover:underline"
+                  onClick={() => bosBirakGor(soru)}
                 >
-                  {acik ? "Açıklamayı gizle" : "Açıklamayı göster"}
+                  Boş bırak, cevabı ve açıklamayı gör
                 </button>
-                {acik && (
-                  <div className="mt-2">
+              </div>
+            )}
+
+            {r && (
+              <div className="mt-3">
+                {acik ? (
+                  <>
                     <AciklamaKutusu metin={r.aciklama} gorsel={r.aciklamaGorsel} />
-                  </div>
+                    {/* Gizle düğmesi açıklamanın altında: okuyup bitirince hemen kapatılsın */}
+                    <button
+                      type="button"
+                      className="btn-ikincil mt-2 w-full py-2 text-sm"
+                      onClick={() => aciklamaDegistir(soru.soruId, true, true)}
+                    >
+                      Açıklamayı gizle ▲
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="text-sm text-vurgu hover:underline"
+                    onClick={() => aciklamaDegistir(soru.soruId, false)}
+                  >
+                    Açıklamayı göster ▼
+                  </button>
                 )}
               </div>
             )}
@@ -369,10 +445,11 @@ export default function CozumEkrani({
             <h2 className="text-lg font-semibold">{anlik ? "Bölümü bitir?" : "Testi bitir?"}</h2>
             <p className="ince">
               {sorular.length} sorudan {isaretli} tanesini cevapladın.{" "}
-              {sorular.length - isaretli > 0 && `${sorular.length - isaretli} soru boş sayılacak.`}{" "}
               {anlik
-                ? "Bitirmeden çıkarsan da cevapların kayıtlı kalır, sonra devam edebilirsin."
-                : "Bitirdiğinde doğru cevaplar ve analiz gösterilir."}
+                ? isaretli === 0 && !Object.values(bakildi).some(Boolean)
+                  ? "Hiç soru çözmedin: bu tur kaydedilmeden kapanacak."
+                  : "Çözmediğin sorular istatistiğe girmez; bitirmeden çıkarsan da kaldığın yerden devam edersin."
+                : `${sorular.length - isaretli > 0 ? `${sorular.length - isaretli} soru boş sayılacak. ` : ""}Bitirdiğinde doğru cevaplar ve analiz gösterilir.`}
             </p>
             {genelHata && <p className="text-sm text-kotu">{genelHata}</p>}
             <div className="flex gap-2">

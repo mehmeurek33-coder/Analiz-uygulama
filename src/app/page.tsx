@@ -14,7 +14,7 @@ import {
   konuSatirlari,
   type KonuToplamSatiri,
 } from "@/lib/analiz";
-import SetListesi, { kaynagaGore, type Ilerleme } from "@/components/SetListesi";
+import SetListesi, { ILERLEME_ALANLARI, kaynagaGore, type Ilerleme } from "@/components/SetListesi";
 import { MUFREDAT } from "@/lib/mufredat";
 import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
 import type { Deneme, SoruSeti } from "@/lib/tipler";
@@ -42,7 +42,7 @@ export default async function Panel() {
     supabase.rpc("perf_konu", { bas: baslangic }),
     supabase.from("sorular").select("id", { count: "exact", head: true }),
     supabase.rpc("perf_konu", { bas: onceki.bas, son: onceki.son }),
-    supabase.from("v_set_ilerleme").select("set_id, soru_sayisi, cevaplanan, dogru, bitti_at").is("ders", null),
+    supabase.from("v_set_ilerleme").select(ILERLEME_ALANLARI).is("ders", null),
     supabase.from("v_konu_havuz").select("ders, soru, cozulen"),
     supabase.from("v_ders_kaynak").select("ders, kaynak"),
     supabase

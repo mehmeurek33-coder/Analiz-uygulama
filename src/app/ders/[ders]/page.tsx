@@ -4,7 +4,7 @@ import BandAciklama from "@/components/BandAciklama";
 import DenemeBaslat from "@/components/DenemeBaslat";
 import IstatistikKarti from "@/components/IstatistikKarti";
 import KonuMetre from "@/components/KonuMetre";
-import SetListesi, { kaynagaGore, type Ilerleme } from "@/components/SetListesi";
+import SetListesi, { ILERLEME_ALANLARI, kaynagaGore, type Ilerleme } from "@/components/SetListesi";
 import { BAND_BILGI, band, yuzde, type KonuOzeti } from "@/lib/analiz";
 import { MUFREDAT } from "@/lib/mufredat";
 import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
@@ -33,7 +33,7 @@ export default async function DersSayfasi({ params }: { params: Promise<{ ders: 
   const supabase = await sunucuIstemcisi();
   const [setlerQ, ilerlemeQ, havuzQ, perfQ, tekrarQ] = await Promise.all([
     supabase.from("soru_setleri").select("*").eq("ders", ders),
-    supabase.from("v_set_ilerleme").select("set_id, soru_sayisi, cevaplanan, dogru, bitti_at").eq("ders", ders),
+    supabase.from("v_set_ilerleme").select(ILERLEME_ALANLARI).eq("ders", ders),
     supabase.from("v_konu_havuz").select("konu, soru, cozulen").eq("ders", ders),
     supabase.from("v_konu_toplam").select("konu, toplam, dogru, yanlis, bos").eq("ders", ders),
     supabase

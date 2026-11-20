@@ -353,3 +353,93 @@ alter table public.sorular add column if not exists aciklama_gorsel text;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('aciklamalar', 'aciklamalar', false, 5242880, array['image/webp', 'image/jpeg', 'image/png'])
 on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------- göç 7: tekrar çözüm, boş + açıklama
+-- Soruyu işaretlemeden açıklamasına bakmak: soru boş sayılır, kilitlenir, tekrar listesine girer.
+alter table public.cevaplar add column if not exists aciklama_bakildi boolean not null default false;
+
+-- Tekrar listesi: açıklamasına boş bakılan soru da "yanlış" gibi listeye girer
+create or replace view public.v_son_cevap with (security_invoker = true) as
+select distinct on (c.user_id, c.soru_id)
+  c.user_id, c.soru_id, s.ders, s.konu,
+  case when c.isaretlenen is null then false else c.dogru end as dogru,
+  c.cevaplandi_at, c.emin_degil
+from public.cevaplar c
+join public.sorular s on s.id = c.soru_id
+where (c.isaretlenen is not null and c.dogru is not null) or c.aciklama_bakildi
+order by c.user_id, c.soru_id, c.cevaplandi_at desc nulls last;
+grant select on public.v_son_cevap to authenticated, service_role;
+
+-- Set ilerlemesi: son oturuma ek olarak en son BİTMİŞ oturum (tekrar çözüm yarıda kalsa da
+-- "daha önce tamamlandı" bilgisi kaybolmasın). Yeni kolonlar sonda.
+create or replace view public.v_set_ilerleme with (security_invoker = true) as
+select distinct on (d.user_id, d.set_id)
+  d.user_id, d.set_id, st.ders, d.id as deneme_id, d.soru_sayisi, d.bitti_at,
+  (select count(*) from public.cevaplar c where c.deneme_id = d.id and c.isaretlenen is not null) as cevaplanan,
+  (select count(*) from public.cevaplar c where c.deneme_id = d.id and c.dogru is true) as dogru,
+  b.bitti_at as son_bitis_at,
+  b.soru_sayisi as son_bitis_soru,
+  (select count(*) from public.cevaplar c where c.deneme_id = b.id and c.dogru is true) as son_bitis_dogru,
+  (select count(*) from public.denemeler x where x.set_id = d.set_id and x.user_id = d.user_id and x.bitti_at is not null) as bitis_sayisi
+from public.denemeler d
+join public.soru_setleri st on st.id = d.set_id
+left join lateral (
+  select x.id, x.bitti_at, x.soru_sayisi from public.denemeler x
+  where x.set_id = d.set_id and x.user_id = d.user_id and x.bitti_at is not null
+  order by x.bitti_at desc limit 1
+) b on true
+where d.set_id is not null
+order by d.user_id, d.set_id, d.created_at desc;
+grant select on public.v_set_ilerleme to authenticated, service_role;
+
+-- Soru bankası (anlık) modunda işaretlenmeyen soru "boş" sayılmaz: yalnızca çözülmemiştir.
+-- Boş sayılan: deneme modunda bitince işaretsiz kalanlar + anlık modda açıklamasına boş bakılanlar.
+create or replace view public.v_konu_performans
+with (security_invoker = true) as
+select
+  c.user_id,
+  d.id                                   as deneme_id,
+  date_trunc('day', coalesce(case when d.anlik then c.cevaplandi_at end, d.bitti_at, d.basladi_at))::date as gun,
+  coalesce(s.ders, 'Belirsiz')           as ders,
+  coalesce(s.konu, 'Belirsiz')           as konu,
+  s.alt_konu,
+  count(*)                               as toplam,
+  count(*) filter (where c.dogru is true)                        as dogru,
+  count(*) filter (where c.dogru is false and c.isaretlenen is not null) as yanlis,
+  count(*) filter (where c.isaretlenen is null)                  as bos,
+  round(avg(c.sure_sn)::numeric, 1)      as ort_sure_sn
+from public.cevaplar c
+join public.denemeler d on d.id = c.deneme_id
+join public.sorular   s on s.id = c.soru_id
+where (not d.anlik and d.bitti_at is not null)
+   or (d.anlik and (c.isaretlenen is not null or c.aciklama_bakildi))
+group by 1,2,3,4,5,6;
+grant select on public.v_konu_performans to authenticated, service_role;
+
+-- "Tamamlandı" bilgisi en çok soru çözülen bitmiş turdan (boş bitirilen tur onu gölgelemesin)
+create or replace view public.v_set_ilerleme with (security_invoker = true) as
+select distinct on (d.user_id, d.set_id)
+  d.user_id, d.set_id, st.ders, d.id as deneme_id, d.soru_sayisi, d.bitti_at,
+  (select count(*) from public.cevaplar c where c.deneme_id = d.id and c.isaretlenen is not null) as cevaplanan,
+  (select count(*) from public.cevaplar c where c.deneme_id = d.id and c.dogru is true) as dogru,
+  b.bitti_at as son_bitis_at,
+  b.soru_sayisi as son_bitis_soru,
+  b.dogru as son_bitis_dogru,
+  (select count(*) from public.denemeler x where x.set_id = d.set_id and x.user_id = d.user_id and x.bitti_at is not null) as bitis_sayisi,
+  b.cevaplanan as son_bitis_cevaplanan
+from public.denemeler d
+join public.soru_setleri st on st.id = d.set_id
+left join lateral (
+  select x.id, x.bitti_at, x.soru_sayisi, y.cevaplanan, y.dogru
+  from public.denemeler x
+  cross join lateral (
+    select count(*) filter (where c.isaretlenen is not null) as cevaplanan,
+           count(*) filter (where c.dogru is true) as dogru
+    from public.cevaplar c where c.deneme_id = x.id
+  ) y
+  where x.set_id = d.set_id and x.user_id = d.user_id and x.bitti_at is not null and y.cevaplanan > 0
+  order by y.cevaplanan desc, x.bitti_at desc limit 1
+) b on true
+where d.set_id is not null
+order by d.user_id, d.set_id, d.created_at desc;
+grant select on public.v_set_ilerleme to authenticated, service_role;
