@@ -24,6 +24,7 @@ export type SoruSeti = {
   islenen_parca: number;
   soru_sayisi: number;
   durum: "kuyrukta" | "isleniyor" | "hazir" | "hata";
+  tur?: "calisma" | "deneme";
   hata: string | null;
   created_at: string;
 };

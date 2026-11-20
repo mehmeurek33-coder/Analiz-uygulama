@@ -187,14 +187,24 @@ create policy "pdfler silme" on storage.objects
   using (bucket_id = 'pdfler' and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- ====================================================================
---  Analiz gorunumu  -  gun / ders / konu kirilimi
+--  Calisma modu ve analiz gorunumu
 -- ====================================================================
+-- Calisma modu: soru bankasi (anlik geri bildirim) / deneme (sonuclar sonda)
+alter table public.soru_setleri add column if not exists tur text not null default 'calisma';
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'soru_setleri_tur_kontrol') then
+    alter table public.soru_setleri add constraint soru_setleri_tur_kontrol check (tur in ('calisma', 'deneme'));
+  end if;
+end $$;
+alter table public.denemeler add column if not exists anlik boolean not null default false;
+
+-- Analiz: bitmis denemeler + anlik modda cevaplanmis sorular (deneme bitmese de sayilir)
 create or replace view public.v_konu_performans
 with (security_invoker = true) as
 select
   c.user_id,
   d.id                                   as deneme_id,
-  date_trunc('day', coalesce(d.bitti_at, d.basladi_at))::date as gun,
+  date_trunc('day', coalesce(case when d.anlik then c.cevaplandi_at end, d.bitti_at, d.basladi_at))::date as gun,
   coalesce(s.ders, 'Belirsiz')           as ders,
   coalesce(s.konu, 'Belirsiz')           as konu,
   s.alt_konu,
@@ -206,7 +216,7 @@ select
 from public.cevaplar c
 join public.denemeler d on d.id = c.deneme_id
 join public.sorular   s on s.id = c.soru_id
-where d.bitti_at is not null
+where d.bitti_at is not null or (d.anlik and c.isaretlenen is not null)
 group by 1,2,3,4,5,6;
 
 grant select on public.v_konu_performans to authenticated, service_role;

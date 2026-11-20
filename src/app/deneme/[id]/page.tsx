@@ -13,7 +13,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
 
   const { data: deneme } = await supabase
     .from("denemeler")
-    .select("id, ad, soru_sayisi, bitti_at")
+    .select("id, ad, soru_sayisi, bitti_at, anlik")
     .eq("id", id)
     .single();
 
@@ -22,10 +22,16 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
   }
   if (deneme.bitti_at) redirect(`/sonuc/${id}`);
 
-  // DIKKAT: dogru_cevap ve aciklama BILEREK secilmiyor - istemciye gitmemeli.
+  // DİKKAT: dogru_cevap ve aciklama yalnızca soru bankası modunda ve yalnızca
+  // CEVAPLANMIŞ sorular için istemciye gönderilir. Cevaplanmamış soruların doğru
+  // şıkkı tarayıcıya hiç gitmez.
+  const alanlar = deneme.anlik
+    ? "numara, metin, secenekler, ders, konu, dogru_cevap, aciklama"
+    : "numara, metin, secenekler, ders, konu";
+
   const { data: satirlar } = await supabase
     .from("cevaplar")
-    .select("id, soru_id, sira, isaretlenen, sure_sn, sorular(numara, metin, secenekler, ders, konu)")
+    .select(`id, soru_id, sira, isaretlenen, dogru, sure_sn, sorular(${alanlar})`)
     .eq("deneme_id", id)
     .order("sira", { ascending: true });
 
@@ -36,7 +42,10 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
       secenekler: Record<string, string>;
       ders: string | null;
       konu: string | null;
+      dogru_cevap?: string | null;
+      aciklama?: string | null;
     };
+    const acik = Boolean(deneme.anlik && s.isaretlenen);
     return {
       cevapId: s.id,
       soruId: s.soru_id,
@@ -48,6 +57,9 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
       secenekler: soru?.secenekler ?? {},
       ders: soru?.ders ?? null,
       konu: soru?.konu ?? null,
+      sonuc: acik
+        ? { dogru: s.dogru, dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null }
+        : null,
     };
   });
 
@@ -55,5 +67,5 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
     return <p className="kart">Bu denemede soru yok.</p>;
   }
 
-  return <CozumEkrani denemeId={id} ad={deneme.ad} sorular={sorular} />;
+  return <CozumEkrani denemeId={id} ad={deneme.ad} anlik={Boolean(deneme.anlik)} sorular={sorular} />;
 }

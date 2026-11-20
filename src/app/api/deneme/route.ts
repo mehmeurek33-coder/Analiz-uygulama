@@ -23,6 +23,31 @@ export async function POST(request: Request) {
 
   let soruIdleri: string[] = [];
 
+  // Mod: deneme setleri sonuçları sonda gösterir; soru bankası ve karışık
+  // denemeler (rastgele, zayıf konu, yanlışlarım, konu) anında geri bildirim verir.
+  let anlik = true;
+  if (mod === "tumu" && setId) {
+    const { data: set } = await supabase
+      .from("soru_setleri")
+      .select("tur")
+      .eq("id", setId)
+      .eq("user_id", user.id)
+      .single();
+    anlik = set?.tur !== "deneme";
+
+    // Bu setten yarım kalmış bir oturum varsa yenisini açma, ona devam et
+    const { data: yarim } = await supabase
+      .from("denemeler")
+      .select("id, soru_sayisi")
+      .eq("user_id", user.id)
+      .eq("set_id", setId)
+      .is("bitti_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (yarim) return NextResponse.json({ id: yarim.id, soruSayisi: yarim.soru_sayisi, devam: true });
+  }
+
   if (mod === "konu") {
     // Tek bir ders/konudan deneme
     if (!ders || !konu) {
@@ -105,6 +130,7 @@ export async function POST(request: Request) {
       set_id: setId,
       ad: (ad || (mod === "konu" && konu ? `${konu} - ${bugunMetni()}` : varsayilanAd(mod))).slice(0, 120),
       soru_sayisi: soruIdleri.length,
+      anlik,
     })
     .select("id")
     .single();

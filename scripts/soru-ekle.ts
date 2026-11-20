@@ -16,6 +16,7 @@
  *     "ad": "TUSDATA Deneme 3 - Temel Bilimler",
  *     "sayfa_sayisi": 40,
  *     "cevap_anahtari": "1-A 2-C ...",        (isteğe bağlı, kayıt için)
+ *     "tur": "deneme",                         (isteğe bağlı: deneme sınavı; varsayılan soru bankası)
  *     "sorular": [
  *       { "numara": 1, "metin": "...", "secenekler": {"A": "...", "B": "..."},
  *         "dogru_cevap": "C", "ders": "Farmakoloji", "konu": "Antibiyotikler",
@@ -43,6 +44,8 @@ type GirdiSoru = {
 
 type Girdi = {
   ad?: string;
+  /** "deneme": sonuçlar test sonunda; "calisma" (varsayılan): soru bankası, anında geri bildirim */
+  tur?: "deneme" | "calisma";
   sayfa_sayisi?: number;
   cevap_anahtari?: string;
   sorular?: GirdiSoru[];
@@ -152,6 +155,7 @@ const veri = JSON.stringify({
   ad,
   sayfa_sayisi: Number.isInteger(girdi.sayfa_sayisi) ? girdi.sayfa_sayisi : 0,
   cevap_anahtari: (girdi.cevap_anahtari || "").trim(),
+  tur: girdi.tur === "deneme" ? "deneme" : "calisma",
   sorular: temiz,
 });
 
@@ -196,9 +200,10 @@ select (select id from hedef) as set_id,
   : `with girdi as (select ${etiket}${veri}${etiket}::jsonb as j),
 yeni_set as (
   insert into public.soru_setleri
-    (user_id, ad, sayfa_sayisi, parca_sayisi, islenen_parca, soru_sayisi, cevap_anahtari, durum)
+    (user_id, ad, sayfa_sayisi, parca_sayisi, islenen_parca, soru_sayisi, cevap_anahtari, durum, tur)
   select '${kullaniciId}'::uuid, j->>'ad', coalesce((j->>'sayfa_sayisi')::int, 0), 0, 0,
-         jsonb_array_length(j->'sorular'), nullif(j->>'cevap_anahtari', ''), 'hazir'
+         jsonb_array_length(j->'sorular'), nullif(j->>'cevap_anahtari', ''), 'hazir',
+         case when j->>'tur' = 'deneme' then 'deneme' else 'calisma' end
   from girdi
   returning id
 ),

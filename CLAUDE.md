@@ -43,8 +43,13 @@ select id from auth.users order by created_at limit 1;
    - Hiçbir konu uymuyorsa konu `"Belirsiz"`
 5. **Cevap anahtarı:** Varsa PDF'in kendi anahtarını kullan (genelde son sayfalarda). Yoksa
    kullanıcıdan iste. **Cevabı kendin çözüp yazma.** Yanlış anahtar bütün analizi bozar.
-   Anahtar yoksa `dogru_cevap` boş kalır. `aciklama` alanına yalnızca anahtar belliyken tek cümlelik gerekçe yaz.
+   Anahtar yoksa `dogru_cevap` boş kalır. `aciklama` alanına kitabın kendi açıklamasını koy; kitapta yoksa boş bırak.
 6. **JSON'u scratchpad'e yaz.** Biçim `scripts/soru-ekle.ts` başındaki yorumda.
+   - **Deneme sınavı PDF'leri** için JSON'a `"tur": "deneme"` ekle: sonuçlar ve açıklamalar test
+     bitince açılır. Belirtilmezse set **soru bankası** olur: her cevap anında kontrol edilir,
+     yanlışta açıklama otomatik açılır.
+   - `aciklama` alanına kitabın o sorunun altındaki açıklamasını aktar (soru bankası modunda
+     gösterilir); varyant kutularını ("şöyle de sorulabilirdi") alma.
 7. **SQL'i üret ve çalıştır:**
 
    ```bash

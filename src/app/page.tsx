@@ -172,7 +172,14 @@ export default async function Panel() {
                   {liste.map((s) => (
                     <li key={s.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm">{bolumAdi(s.ad)}</p>
+                        <p className="truncate text-sm">
+                          {bolumAdi(s.ad)}
+                          {s.tur === "deneme" && (
+                            <span className="ml-2 rounded-md bg-orta/15 px-1.5 py-0.5 text-[10px] font-semibold text-orta">
+                              DENEME
+                            </span>
+                          )}
+                        </p>
                         <p className="text-xs text-silik">
                           {s.soru_sayisi} soru
                           {s.durum === "hata" ? ` · hata: ${s.hata ?? ""}` : ""}
