@@ -93,6 +93,28 @@ fotoğrafını gönderecek; gönderdiğinde:
 
 Durum: **Mikrobiyoloji** güncel (6 bölüm, 73 başlık). Diğer 10 ders henüz genel liste.
 
+## Yeni baskı geldiğinde (örn. TTS Mikrobiyoloji yeni baskı)
+
+İlk aktarımın dersleri. Eski baskıyı yeniden tarama; yeni baskıyı şöyle al:
+
+1. **PDF'i yokla:** `pdffonts` / `pdftotext -f 10 -l 10` ile metin katmanı var mı bak. Varsa OCR yok:
+   metin ve konum `pdftotext -bbox-layout` ile birebir gelir, Türkçe karakter hatası olmaz.
+   Taranmışsa `scripts/ocr/` hattı (tek geçiş: `ocr_tsv.sh` TSV'si hem metin hem konum verir,
+   ayrı .txt OCR'ı gereksiz; `OMP_THREAD_LIMIT=1`). Sayfa düzeni değiştiyse kırpma koordinatlarını
+   bir sayfa görüntüsünden yeniden ölç.
+2. **İçindekiler → `bolumler.py`:** PDF'teki içindekiler sayfasından (ya da kullanıcının fotoğrafından).
+   Kitap sayfası ↔ PDF sayfası kaymasını birkaç sayfa numarasından hesapla.
+3. **Eski baskıyla eşleştir (asıl kazanç):** yeni sorunun kökünü eski 1492 soruyla benzerlikle eşle
+   (aynı bölüm, `difflib` ≥ 0,85). Eşleşen soru: konu/alt_konu eski etiketten, doğruluk eski metinle
+   kıyaslanır; yalnızca eşleşmeyen (yeni eklenen sınav soruları) ve cevabı farklı çıkanlar gözle
+   kontrol edilir. İlk seferki tek tek görüntü doğrulaması böylece büyük ölçüde gereksiz.
+4. **Yerinde güncelle, geçmişi koru:** eşleşen soruların `sorular` satırını (aynı id) yeni metin,
+   açıklama ve görüntüyle güncelle ve yeni bölüm setine taşı; yeni sorular eklenir; yeni baskıda
+   olmayan eski sorular silinmez, kullanıcıya sorulur. Böylece cevaplar, Yanlışlarım ve
+   "emin değilim" kaybolmaz; görüntüler aynı `<soru_id>.webp` üzerine yazıldığı için depolama
+   ikiye katlanmaz. Bunu yapmadan önce kullanıcıdan onay al.
+5. **Açıklama görüntüleri aynı geçişte:** `aciklama_gorsel.py` + `gorsel_yukle.py`.
+
 ## Analiz ("analizimi yap")
 
 Sorgular `v_konu_performans` üzerinde çalışır. Bitirilmiş denemelerin tüm cevapları ve soru
