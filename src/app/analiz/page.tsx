@@ -206,7 +206,7 @@ export default async function AnalizPage({
               </div>
               {zayiflar.length > 0 && (
                 <div className="w-full sm:w-52">
-                  <DenemeBaslat mod="zayif" adet={20} etiket="Bu konulardan çöz" ikincil />
+                  <DenemeBaslat mod="zayif" adet={20} etiket="Öncelikli konulardan çöz" ikincil />
                 </div>
               )}
             </div>

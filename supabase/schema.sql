@@ -614,3 +614,52 @@ join ders_max m on m.user_id = h.user_id and m.ders = h.ders
 left join agirlik a on a.user_id = h.user_id and a.ders = h.ders and a.konu = h.konu
 left join durum d on d.user_id = h.user_id and d.ders = h.ders and d.konu = h.konu;
 grant select on public.v_konu_oncelik to authenticated, service_role;
+-- ---------------------------------------------------------------- göç 11: erken tekrar kutu atlatmaz
+-- Seri yalnızca farklı günleri saymakla kalmaz, tekrarlar arasında zaman da geçmiş olmalı: kutu 3 için
+-- serinin ilk ve son emin doğrusu arasında en az 4,5 gün, kutu 4 için en az 15 gün (aralıkların yarısı
+-- toplamı). Böylece aynı bölümü iki gün üst üste çözmek soruyu "öğrenildi" yapmaz.
+create or replace view public.v_soru_durum with (security_invoker = true) as
+with sirali as (
+  select o.*, row_number() over (partition by user_id, soru_id order by zaman desc) as rn
+  from public.v_cevap_olay o
+),
+ozet as (
+  select user_id, soru_id, max(ders) as ders, max(konu) as konu,
+         count(*) as deneme_sayisi,
+         bool_or(basari < 1) as hata_var,
+         count(*) filter (where basari < 1) as hata_sayisi,
+         max(zaman) as son_zaman,
+         min(rn) filter (where basari < 1) as ilk_hata_rn
+  from sirali group by user_id, soru_id
+),
+seri as (
+  select z.user_id, z.soru_id,
+         count(distinct (s.zaman at time zone 'Europe/Istanbul')::date) as gun,
+         extract(epoch from max(s.zaman) - min(s.zaman)) / 86400.0 as aralik
+  from ozet z
+  join sirali s on s.user_id = z.user_id and s.soru_id = z.soru_id
+   and s.rn < coalesce(z.ilk_hata_rn, 1000000)
+  group by z.user_id, z.soru_id
+),
+kutulu as (
+  select z.*,
+         case when not z.hata_var then 4
+              else least(coalesce(sr.gun, 0), 4,
+                         case when coalesce(sr.aralik, 0) >= 15 then 4
+                              when coalesce(sr.aralik, 0) >= 4.5 then 3
+                              else 2 end)
+         end as kutu
+  from ozet z
+  left join seri sr on sr.user_id = z.user_id and sr.soru_id = z.soru_id
+)
+select user_id, soru_id, ders, konu, deneme_sayisi, hata_sayisi, son_zaman, kutu,
+       not hata_var as bilinen,
+       case when not hata_var then null
+            when kutu = 0 then son_zaman
+            when kutu = 1 then son_zaman + interval '2 days'
+            when kutu = 2 then son_zaman + interval '7 days'
+            when kutu = 3 then son_zaman + interval '21 days'
+            else null end as sonraki_tekrar,
+       hata_var and kutu < 4 as acik_hata
+from kutulu;
+grant select on public.v_soru_durum to authenticated, service_role;

@@ -2,11 +2,10 @@ import Link from "next/link";
 import BandAciklama from "@/components/BandAciklama";
 import DenemeBaslat from "@/components/DenemeBaslat";
 import IstatistikKarti from "@/components/IstatistikKarti";
-import KonuMetre from "@/components/KonuMetre";
+import OncelikListesi from "@/components/OncelikListesi";
 import {
   donemBaslangici,
   fark,
-  konulariTopla,
   oncekiDonemAraligi,
   ozetle,
   sureleriOzetle,
@@ -16,6 +15,7 @@ import {
 } from "@/lib/analiz";
 import SetListesi, { ILERLEME_ALANLARI, kaynagaGore, type Ilerleme } from "@/components/SetListesi";
 import { MUFREDAT } from "@/lib/mufredat";
+import { ONCELIK_ALANLARI, ONCELIKLI_KONU_SAYISI, oncelikSatiri, payDagit } from "@/lib/oncelik";
 import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
 import type { Deneme, SoruSeti } from "@/lib/tipler";
 import { pdfYuklemeAcik } from "@/lib/ozellikler";
@@ -31,7 +31,7 @@ export default async function Panel() {
   const baslangic = donemBaslangici("hafta")!;
   const onceki = oncekiDonemAraligi("hafta")!;
 
-  const [setlerQ, denemelerQ, perfQ, soruSayisiQ, oncekiQ, ilerlemeQ, havuzQ, kaynakQ, tekrarQ] = await Promise.all([
+  const [setlerQ, denemelerQ, perfQ, soruSayisiQ, oncekiQ, ilerlemeQ, havuzQ, kaynakQ, tekrarQ, acikQ, oncelikQ] = await Promise.all([
     // Panelde yalnızca dersi belirsiz setler listelenir; dersli setler ders sayfasında
     supabase.from("soru_setleri").select("*").is("ders", null).order("ad", { ascending: true }),
     supabase
@@ -45,10 +45,14 @@ export default async function Panel() {
     supabase.from("v_set_ilerleme").select(ILERLEME_ALANLARI).is("ders", null),
     supabase.from("v_konu_havuz").select("ders, soru, cozulen"),
     supabase.from("v_ders_kaynak").select("ders, kaynak"),
+    supabase.from("v_tekrar_vadesi").select("soru_id", { count: "exact", head: true }),
+    supabase.from("v_soru_durum").select("soru_id", { count: "exact", head: true }).eq("acik_hata", true),
     supabase
-      .from("v_son_cevap")
-      .select("soru_id", { count: "exact", head: true })
-      .or("dogru.eq.false,emin_degil.eq.true"),
+      .from("v_konu_oncelik")
+      .select(ONCELIK_ALANLARI)
+      .gt("deneme", 0)
+      .order("oncelik", { ascending: false })
+      .limit(ONCELIKLI_KONU_SAYISI),
   ]);
 
   // set_id -> en son oturumdaki ilerleme
@@ -87,8 +91,8 @@ export default async function Panel() {
   const oncekiOzet = ozetle(konuSatirlari(oncekiQ.data as KonuToplamSatiri[]));
   const sure = sureleriOzetle(perf);
   const oranFarki = oncekiOzet.toplam > 0 && ozet.toplam > 0 ? fark(ozet.oran, oncekiOzet.oran) : null;
-  const konular = konulariTopla(perf);
-  const zayiflar = konular.filter((k) => k.toplam >= 2).slice(0, 5);
+  const oncelikli = (oncelikQ.data ?? []).map((x) => oncelikSatiri(x as Record<string, unknown>));
+  const paylar = payDagit(oncelikli, 20);
 
   return (
     <div className="space-y-6">
@@ -122,15 +126,15 @@ export default async function Panel() {
           <DenemeBaslat
             mod="zayif"
             adet={20}
-            etiket="Zayıf konularım"
-            aciklama="Tüm derslerdeki en düşük oranlı konular"
+            etiket="Öncelikli konular"
+            aciklama="Ustalığı düşük, sık sorulan ve tekrarı gelen konular"
             ikincil
           />
           <DenemeBaslat
             mod="yanlis"
             adet={20}
             etiket="Yanlışlarım"
-            aciklama={`${tekrarQ.count ?? 0} soru · yanlışların ve emin olmadıkların`}
+            aciklama={`${tekrarQ.count ?? 0} soru bugün · ${acikQ.count ?? 0} açık hata`}
             ikincil
           />
         </div>
@@ -153,15 +157,19 @@ export default async function Panel() {
 
       <section className="kart">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="font-semibold">En zayıf 5 konu</h2>
+          <h2 className="font-semibold">Öncelikli konular</h2>
           <Link href="/analiz" className="text-sm text-vurgu hover:underline">
             Tüm analiz
           </Link>
         </div>
+        <p className="mb-3 text-xs text-silik">
+          Ustalık son cevaplara ağırlık verir; bir kez doğru yapmak konuyu &quot;öğrenildi&quot; yapmaz. Hata yaptığın
+          soru 2, 7 ve 21 gün sonra yeniden sorulur.
+        </p>
         <div className="mb-3">
           <BandAciklama />
         </div>
-        <KonuMetre satirlar={zayiflar} bosMesaj="Son 7 günde çözülmüş soru yok." />
+        <OncelikListesi konular={oncelikli} paylar={paylar} dersGoster bosMesaj="Henüz çözülmüş soru yok." />
       </section>
 
       <section className="kart">

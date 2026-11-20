@@ -157,24 +157,40 @@ Raporlarken:
 - Bantlar uygulamayla aynı: %70 ve üzeri iyi, %50-69 geliştirilmeli, %50 altı eksik.
 - Boş ağırlıklıysa konu eksiği (tekrar et), yanlış ağırlıklıysa yanlış bilgi/çeldirici (soru çöz, çözümleri oku).
 - Önceki dönemle kıyasla, somut bir sonraki adım öner.
+- Konu önerisi için `v_konu_oncelik` (ustalık, açık hata, vadesi gelen, öncelik) ve tekrar yükü için
+  `v_tekrar_vadesi` / `v_soru_durum` kullan; tek bir doğruyu "öğrenildi" diye yorumlama.
 
 ## Mevcut durum (her oturumda buradan devam et)
 
 - **Canlı adres:** https://analiz-uygulama.vercel.app — Vercel projesi `prj_BgWUXNUwRwInDqCATPVq2fvcs9re`,
   GitHub `mehmeurek33-coder/Analiz-uygulama`, üretim dalı `claude/question-practice-analyzer-9xu016`.
   Bu dala push otomatik yayınlanır. Fonksiyon bölgesi `vercel.json` ile Dublin (`dub1`), veritabanına yakın.
-- **Yüklü kitap:** TUSDATA Tüm TUS Soruları – Mikrobiyoloji (35. baskı): 72 bölüm, 1492 soru, 1360'ında
-  kitap açıklaması var. Set adları `TTS Mikrobiyoloji · NN Bölüm adı`; ders `Mikrobiyoloji`, kaynak `Tüm TUS Soruları`.
+- **Yüklü kitap:** TUSDATA Tüm TUS Soruları – Mikrobiyoloji, **36. baskıya güncellendi** (35. baskı
+  soruları yerinde güncellendi, id'ler aynı; 33 yeni 2025 sorusu eklendi, `numara` boş): 72 bölüm, 1525 soru,
+  1471'inde açıklama, 1430'unda blok açıklama (`aciklama_bloklar`). 36. baskıda bulunamayan 66 eski soru
+  silinmedi. Eşleştirme çıktıları scratchpad'de (`yeni/yapi.json`), araçlar `scripts/ocr/yeni_baski.py`,
+  `aciklama_blok.py`. Set adları `TTS Mikrobiyoloji · NN Bölüm adı`; ders `Mikrobiyoloji`, kaynak `Tüm TUS Soruları`.
   Yedek tablo `public.aktarim_bekleyen` (RLS açık, yetki yok); silinebilir ama zararı yok.
-- **Düzen:** Panel = 11 ders kartı + tüm dersler için genel deneme (rastgele / zayıf konular /
+- **Düzen:** Panel = 11 ders kartı + tüm dersler için genel deneme (rastgele / öncelikli konular /
   yanlışlarım). `/ders/<Ders>` = o dersin istatistikleri, derse özel denemeler, kaynaklar (her kaynak
   ayrı katlanır liste, bölüm bölüm ilerleme) ve konu listesi (konu konu deneme). Setin yeri
   `soru_setleri.ders`, `kaynak`, `bolum_no` kolonlarından gelir.
-- **Yanlışlarım (tekrar listesi):** son cevabı yanlış olan sorular + doğru olsa da "emin değilim"
+- **Yanlışlarım (tekrar listesi, aralıklı tekrar):** hata yapılan sorular + doğru olsa da "emin değilim"
   işaretlenenler (`cevaplar.emin_degil`) + işaretlemeden açıklamasına bakılanlar
   (`cevaplar.aciklama_bakildi`, `/api/aciklama-bak`; soru kilitlenir) + test bitince boş bırakılıp
   geçilenler (`cevaplar.bos_gecildi`, bitir rotası yazar: deneme modunda tüm işaretsizler, soru
-  bankasında son cevaplanandan öncekiler). `v_son_cevap`. Sonradan emin olarak doğru yapılan soru düşer.
+  bankasında son cevaplanandan öncekiler). Bir kez doğru yapmak soruyu düşürmez (aşağıda algoritma).
+- **Tekrar ve öncelik algoritması** (göç 10-11, `src/lib/oncelik.ts`):
+  - `v_cevap_olay`: sayılan her cevap; başarı 1 = emin doğru, 0,5 = doğru ama emin değil, 0 = yanlış/boş/bakıldı.
+  - `v_soru_durum`: hiç hatası olmayan soru `bilinen`. Hatalı soru kutu 0; son hatadan sonraki emin
+    doğrular FARKLI günlerde sayılır ve aralarında zaman geçmeli (kutu 3 için ≥4,5 gün, kutu 4 için ≥15 gün).
+    Tekrar: kutu 0 hemen, 1 → 2 gün, 2 → 7 gün, 3 → 21 gün; kutu 4 öğrenildi. `acik_hata` = hatalı ve kutu < 4.
+  - `v_tekrar_vadesi`: tekrar zamanı gelen açık hatalar → "Yanlışlarım" denemesi (düşük kutu önce).
+  - `v_konu_oncelik`: ustalık = (2 + Σw·başarı)/(4 + Σw), w = e^(−gün/30); önem = ln(1+konu sorusu)/ln(1+derste
+    en büyük konu); öncelik = önem·(1−ustalık) + 0,04·açık hata (≤0,3) + 0,05·vadesi gelen (≤0,3)
+    (+0,15·önem hiç çalışılmamışsa). "Öncelikli konular" denemesi: çalışılmış en öncelikli 6 konu, soru payı
+    öncelikle orantılı (`payDagit`); konu içinde sıra: vadesi gelen → hiç çözülmemiş → en eski bilinen.
+    Konu denemesi ("Çöz") de aynı sırayla seçer. Panel ve ders sayfası bu listeyi ve ustalığı gösterir.
 - **Tekrar çözüm:** `v_set_ilerleme` son tura ek olarak en çok soru çözülen bitmiş turu
   (`son_bitis_*`, `bitis_sayisi`) verir; tekrar turu yarıda kalsa da "Tamamlandı" görünür.
   Hiç soru çözülmeden bitirilen anlık tur kaydedilmez (bitir rotası siler, `silindi: true`).
@@ -188,7 +204,7 @@ Raporlarken:
     açılır. Anahtar ve açıklama sayfayla önceden gelir (anında geri bildirim), kayıt arka planda yapılır.
     Bölüm yarıda bırakılırsa "Devam et" aynı oturumu açar.
   - Deneme (`deneme`): sonuçlar ve açıklamalar "Bitir"den sonra; anahtar tarayıcıya hiç gönderilmez.
-  - Hızlı denemeler (rastgele / zayıf konular / yanlışlarım / konu) her zaman soru bankası modundadır.
+  - Hızlı denemeler (rastgele / öncelikli konular / yanlışlarım / konu) her zaman soru bankası modundadır.
 - **Görünümler:** `v_konu_performans` (analiz, gün kırılımlı), `v_konu_toplam` (ders/konu tüm zamanlar),
   `v_konu_havuz` (ders/konu soru sayısı, en az bir kez çözülen, anahtarsız), `v_set_ilerleme` (her setin
   son oturumu: cevaplanan, doğru, bitti mi → "%x çözüldü" / "Tamamlandı").
@@ -199,8 +215,12 @@ Raporlarken:
 - **Satır sınırı:** PostgREST bir istekte en fazla 1000 satır döndürür. Analiz için ham
   `v_konu_performans` çekme; `perf_konu(bas, son)` / `perf_gun(bas, son)` RPC'lerini kullan.
   Listeleri ders/set ile filtrele (`v_set_ilerleme.ders`, `v_ders_kaynak`, `v_son_cevap`).
-- **Açıklama görüntüleri:** TTS Mikrobiyoloji 1324 soru, 93 MB (eski ayar, tam gri; `aciklamalar`
-  deposu, gizli; sayfa açılırken 6 saatlik imzalı bağlantı, `src/lib/aciklamaGorsel.ts`). Yeni varsayılan
+- **Açıklama görüntüleri:** artık **Backblaze B2** (`GORSEL_DEPO=b2`, kova `tus-analiz`, `src/lib/b2.ts`);
+  yükleme `POST /api/gorsel-yukle?yol=<ad>` (`x-yukleme-anahtari` başlığı = `YUKLEME_ANAHTARI`, değeri
+  scratchpad'de `yukleme_anahtari`; araç `b2_yukle.py`), kaynak PDF'ler `GET /api/kaynak`. Açıklama blokları:
+  `{t:"m",x}` metin + `{t:"g",yol,w,h,tur}` yalnızca kendisi kadar kırpılmış şekil/tablo; `aciklama_gorsel` tam
+  hâli ("Kitaptaki hâlini göster"). Supabase `aciklamalar` deposunda eski 35. baskı görüntüleri (93 MB)
+  geri dönüş için duruyor, silinebilir. Eski not: Yeni varsayılan
   4 gri ton kayıpsız: kitap başına ~40 MB. Metin katmanlı PDF'lerde metin zaten doğru: görüntüyü
   yalnızca tablo/şekil içeren açıklamalara üret. Böylece 33 kitap 1 GB'a sığar. Sığmazsa seçenekler:
   Cloudflare R2 / Backblaze B2 (10 GB ücretsiz) ya da Supabase Pro. Soru çözümü Claude kotası harcamaz.

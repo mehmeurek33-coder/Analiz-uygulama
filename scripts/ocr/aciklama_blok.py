@@ -453,6 +453,15 @@ def tam_genislik(k, ust, alt):
 
 
 # ---------------------------------------------------------------- metin
+def temizle(t):
+    """Tesseract artiklari: tek basina "o" / "oO" onekleri, satir basi "mmm", "%" yerine "0"."""
+    t = re.sub(r"(?<=\s)[oO]\s(?=[A-ZÇĞİÖŞÜ])", "", t)            # "... o İmpetigo" -> "İmpetigo"
+    t = re.sub(r"(?<![A-Za-zÇçĞğİıÖöŞşÜü])oO(?=[a-zçğıöşü]{3,})", "", t)  # "oOsonrasi" -> "sonrasi" (yalniz "oO")
+    t = re.sub(r"^\s*m{2,4}\s+", "", t, flags=re.M)               # satir basi "mmm"
+    t = re.sub(r"\(0(\d{2})(?=[\s\-–)])", r"(%\1", t)            # "(090-100)" -> "(%90-100)"
+    return t
+
+
 def paragraflar(lines):
     out = ""
     for t in lines:
@@ -472,6 +481,7 @@ def paragraflar(lines):
     out = re.sub(r"\(\s?[oO0]\s+(?=\S)", "", out)
     out = re.sub(r"\([oO0](?=\()", "", out)
     out = re.sub(r"(?<![A-Za-zÇçĞğİıÖöŞşÜü])(Oo|oo|OO|Oo0|0o|O0)(?![A-Za-zÇçĞğİıÖöŞşÜü])", " ", out)
+    out = temizle(out)
     out = re.sub(r"[ \t]{2,}", " ", out)
     out = re.sub(r"^\s*[v√✓✔>»*]\s*", "• ", out, flags=re.M)
     return out.strip()

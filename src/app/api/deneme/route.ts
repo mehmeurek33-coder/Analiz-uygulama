@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ONCELIK_ALANLARI, ONCELIKLI_KONU_SAYISI, oncelikSatiri, payDagit } from "@/lib/oncelik";
 import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
 
 export const maxDuration = 60;
@@ -51,71 +52,67 @@ export async function POST(request: Request) {
   }
 
   if (mod === "konu") {
-    // Tek bir ders/konudan deneme
+    // Tek bir ders/konudan: önce tekrar zamanı gelenler, sonra hiç çözülmemişler, sonra en eski çözülenler
     if (!ders || !konu) {
       return NextResponse.json({ hata: "Ders ve konu gerekli." }, { status: 400 });
     }
-    const { data } = await supabase
-      .from("sorular")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("ders", ders)
-      .eq("konu", konu)
-      .limit(500);
-    soruIdleri = karistir((data ?? []).map((s) => s.id)).slice(0, limit);
+    soruIdleri = karistir(await konudanSec(supabase, user.id, ders, konu, limit));
   } else if (mod === "yanlis") {
-    // Son cevabı yanlış olan sorular: sonradan doğru yaptığın soru listeden düşer.
-    // ders verilirse yalnızca o dersin soruları.
-    // v_son_cevap her sorunun en son cevabını tutar (cevap geçmişi ne kadar uzun olursa olsun).
-    // Tekrar listesi: son cevabı yanlış olanlar + doğru olsa da "emin değilim" işaretlenenler.
+    // Tekrar listesi (aralıklı tekrar): yanlış, boş, "emin değilim" ya da açıklamasına bakılmış
+    // sorulardan TEKRAR ZAMANI GELENLER. Bir kez doğru yapınca soru düşmez, sonraki tekrarı
+    // 2 → 7 → 21 gün ileri atılır; farklı günlerde art arda 4 emin doğrudan sonra öğrenilmiş sayılır.
     let sorgu = supabase
-      .from("v_son_cevap")
-      .select("soru_id")
-      .eq("user_id", user.id)
-      .or("dogru.eq.false,emin_degil.eq.true");
-    if (ders) sorgu = sorgu.eq("ders", ders);
-    const { data } = await sorgu.order("cevaplandi_at", { ascending: false }).limit(1000);
-    soruIdleri = karistir((data ?? []).map((c) => c.soru_id as string)).slice(0, limit);
-  } else if (mod === "zayif") {
-    // En zayif konulardan soru topla
-    let perfSorgu = supabase
-      .from("v_konu_toplam")
-      .select("ders, konu, toplam, dogru")
+      .from("v_tekrar_vadesi")
+      .select("soru_id, kutu, sonraki_tekrar")
       .eq("user_id", user.id);
-    if (ders) perfSorgu = perfSorgu.eq("ders", ders);
-    const { data: perf } = await perfSorgu;
-
-    // En az 3 soru çözülmüş, %70 altındaki konular; en düşük orandan başla
-    const zayif = (perf ?? [])
-      .map((p) => ({ ders: p.ders, konu: p.konu, t: Number(p.toplam) || 0, d: Number(p.dogru) || 0 }))
-      .filter((x) => x.t >= 3 && x.d / x.t < 0.7)
-      .sort((a, b) => a.d / a.t - b.d / b.t || b.t - b.d - (a.t - a.d))
-      .slice(0, 6);
-
-    if (zayif.length === 0) {
+    if (ders) sorgu = sorgu.eq("ders", ders);
+    const { data } = await sorgu
+      .order("kutu", { ascending: true })
+      .order("sonraki_tekrar", { ascending: true })
+      .limit(1000);
+    soruIdleri = karistir((data ?? []).slice(0, limit).map((c) => c.soru_id as string));
+    if (soruIdleri.length === 0) {
+      let yakin = supabase
+        .from("v_soru_durum")
+        .select("sonraki_tekrar")
+        .eq("user_id", user.id)
+        .eq("acik_hata", true)
+        .not("sonraki_tekrar", "is", null);
+      if (ders) yakin = yakin.eq("ders", ders);
+      const { data: ilk } = await yakin.order("sonraki_tekrar", { ascending: true }).limit(1);
+      const t = ilk?.[0]?.sonraki_tekrar as string | undefined;
       return NextResponse.json(
         {
-          hata: (perf ?? []).some((p) => Number(p.toplam) >= 3)
-            ? "%70'in altında konun yok, iyi gidiyorsun."
-            : "Zayıf konuları bulmak için önce biraz soru çözmelisin.",
+          hata: t
+            ? `Bugün tekrar zamanı gelen soru yok. Sıradaki tekrar: ${new Date(t).toLocaleDateString("tr-TR", {
+                day: "numeric",
+                month: "long",
+                timeZone: "Europe/Istanbul",
+              })}.`
+            : "Tekrar edilecek soru yok.",
         },
         { status: 400 },
       );
     }
-
-    // Her zayıf konudan eşit pay, konu içinde rastgele (her seferinde aynı sorular gelmesin)
-    const pay = Math.ceil(limit / zayif.length);
+  } else if (mod === "zayif") {
+    // Öncelikli konular (v_konu_oncelik): çalışılmış konular öncelik sırasıyla, soru payı öncelikle orantılı
+    let sorgu = supabase
+      .from("v_konu_oncelik")
+      .select(ONCELIK_ALANLARI)
+      .eq("user_id", user.id)
+      .gt("deneme", 0);
+    if (ders) sorgu = sorgu.eq("ders", ders);
+    const { data: oncelik } = await sorgu.order("oncelik", { ascending: false }).limit(ONCELIKLI_KONU_SAYISI);
+    const konular = (oncelik ?? []).map((x) => oncelikSatiri(x as Record<string, unknown>));
+    if (konular.length === 0) {
+      return NextResponse.json(
+        { hata: "Öncelikli konuları belirlemek için önce biraz soru çözmelisin." },
+        { status: 400 },
+      );
+    }
+    const paylar = payDagit(konular, limit);
     const parcalar = await Promise.all(
-      zayif.map(async (z) => {
-        const { data } = await supabase
-          .from("sorular")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("ders", z.ders)
-          .eq("konu", z.konu)
-          .limit(1000);
-        return karistir((data ?? []).map((s) => s.id as string)).slice(0, pay);
-      }),
+      konular.map((k, i) => konudanSec(supabase, user.id, k.ders, k.konu, paylar[i])),
     );
     soruIdleri = karistir([...new Set(parcalar.flat())]).slice(0, limit);
   } else if (mod === "rastgele" && !setId) {
@@ -183,6 +180,47 @@ export async function POST(request: Request) {
   return NextResponse.json({ id: deneme.id, soruSayisi: soruIdleri.length });
 }
 
+type Istemci = Awaited<ReturnType<typeof sunucuIstemcisi>>;
+
+/**
+ * Bir konudan `adet` soru seçer. Sıra: tekrar zamanı gelen hatalar (düşük kutu önce), hiç
+ * çözülmemiş sorular (rastgele), hiç hata yapılmamış sorular (en uzun süredir bakılmayan önce),
+ * en son tekrarı henüz gelmemiş hatalar (gerekirse).
+ */
+async function konudanSec(supabase: Istemci, userId: string, ders: string, konu: string, adet: number) {
+  if (adet <= 0) return [];
+  const [havuzQ, durumQ] = await Promise.all([
+    supabase.from("sorular").select("id").eq("user_id", userId).eq("ders", ders).eq("konu", konu).limit(1000),
+    supabase
+      .from("v_soru_durum")
+      .select("soru_id, kutu, bilinen, acik_hata, sonraki_tekrar, son_zaman")
+      .eq("user_id", userId)
+      .eq("ders", ders)
+      .eq("konu", konu)
+      .limit(1000),
+  ]);
+  const simdi = Date.now();
+  const durum = new Map((durumQ.data ?? []).map((d) => [d.soru_id as string, d]));
+  const vade: { id: string; kutu: number; t: number }[] = [];
+  const yeni: string[] = [];
+  const bilinen: { id: string; t: number }[] = [];
+  const bekleyen: { id: string; t: number }[] = [];
+  for (const { id } of havuzQ.data ?? []) {
+    const d = durum.get(id as string);
+    if (!d) yeni.push(id as string);
+    else if (d.bilinen) bilinen.push({ id: id as string, t: Date.parse(d.son_zaman as string) || 0 });
+    else if (d.acik_hata && d.sonraki_tekrar && Date.parse(d.sonraki_tekrar as string) <= simdi)
+      vade.push({ id: id as string, kutu: Number(d.kutu), t: Date.parse(d.sonraki_tekrar as string) });
+    else bekleyen.push({ id: id as string, t: Date.parse((d.sonraki_tekrar ?? d.son_zaman) as string) || 0 });
+  }
+  return [
+    ...vade.sort((a, b) => a.kutu - b.kutu || a.t - b.t).map((x) => x.id),
+    ...karistir(yeni),
+    ...bilinen.sort((a, b) => a.t - b.t).map((x) => x.id),
+    ...bekleyen.sort((a, b) => a.t - b.t).map((x) => x.id),
+  ].slice(0, adet);
+}
+
 function karistir<T>(dizi: T[]): T[] {
   const d = [...dizi];
   for (let i = d.length - 1; i > 0; i--) {
@@ -202,8 +240,8 @@ function varsayilanAd(mod: string) {
     konu: "Konu denemesi",
     tumu: "Set denemesi",
     rastgele: "Rastgele deneme",
-    zayif: "Zayıf konu denemesi",
-    yanlis: "Yanlışlarım denemesi",
+    zayif: "Öncelikli konular",
+    yanlis: "Yanlışlarım tekrarı",
   };
   return `${adlar[mod] ?? "Deneme"} - ${tarih}`;
 }

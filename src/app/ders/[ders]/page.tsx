@@ -3,10 +3,18 @@ import { notFound } from "next/navigation";
 import BandAciklama from "@/components/BandAciklama";
 import DenemeBaslat from "@/components/DenemeBaslat";
 import IstatistikKarti from "@/components/IstatistikKarti";
-import KonuMetre from "@/components/KonuMetre";
+import OncelikListesi from "@/components/OncelikListesi";
 import SetListesi, { ILERLEME_ALANLARI, kaynagaGore, type Ilerleme } from "@/components/SetListesi";
-import { BAND_BILGI, band, yuzde, type KonuOzeti } from "@/lib/analiz";
+import { BAND_BILGI, band, yuzde } from "@/lib/analiz";
 import { MUFREDAT } from "@/lib/mufredat";
+import {
+  AZ_KANIT,
+  ONCELIK_ALANLARI,
+  ONCELIKLI_KONU_SAYISI,
+  oncelikSatiri,
+  payDagit,
+  type KonuOncelik,
+} from "@/lib/oncelik";
 import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
 import type { SoruSeti } from "@/lib/tipler";
 
@@ -20,6 +28,7 @@ type KonuSatiri = {
   dogru: number;
   yanlis: number;
   bos: number;
+  o?: KonuOncelik;
 };
 
 export default async function DersSayfasi({ params }: { params: Promise<{ ders: string }> }) {
@@ -31,16 +40,18 @@ export default async function DersSayfasi({ params }: { params: Promise<{ ders: 
   if (!tanim) notFound();
 
   const supabase = await sunucuIstemcisi();
-  const [setlerQ, ilerlemeQ, havuzQ, perfQ, tekrarQ] = await Promise.all([
+  const [setlerQ, ilerlemeQ, havuzQ, perfQ, tekrarQ, acikQ, oncelikQ] = await Promise.all([
     supabase.from("soru_setleri").select("*").eq("ders", ders),
     supabase.from("v_set_ilerleme").select(ILERLEME_ALANLARI).eq("ders", ders),
     supabase.from("v_konu_havuz").select("konu, soru, cozulen").eq("ders", ders),
     supabase.from("v_konu_toplam").select("konu, toplam, dogru, yanlis, bos").eq("ders", ders),
+    supabase.from("v_tekrar_vadesi").select("soru_id", { count: "exact", head: true }).eq("ders", ders),
     supabase
-      .from("v_son_cevap")
+      .from("v_soru_durum")
       .select("soru_id", { count: "exact", head: true })
       .eq("ders", ders)
-      .or("dogru.eq.false,emin_degil.eq.true"),
+      .eq("acik_hata", true),
+    supabase.from("v_konu_oncelik").select(ONCELIK_ALANLARI).eq("ders", ders),
   ]);
 
   const setler = (setlerQ.data ?? []) as SoruSeti[];
@@ -68,6 +79,18 @@ export default async function DersSayfasi({ params }: { params: Promise<{ ders: 
     k.yanlis += Number(p.yanlis);
     k.bos += Number(p.bos);
   }
+  const oncelik = (oncelikQ.data ?? []).map((x) => oncelikSatiri(x as Record<string, unknown>));
+  for (const o of oncelik) satir(o.konu).o = o;
+  oncelik.sort((a, b) => b.oncelik - a.oncelik);
+  // Çalışılmış konular öncelik sırasıyla (Öncelikli konular denemesiyle aynı); hiç başlanmamış
+  // konulardan en çok soru içerenler ayrıca
+  const oncelikli = oncelik.filter((o) => o.deneme > 0).slice(0, ONCELIKLI_KONU_SAYISI);
+  const paylar = payDagit(oncelikli, 20);
+  const baslanmamis = oncelik
+    .filter((o) => o.deneme === 0 && o.soru > 0)
+    .sort((a, b) => b.soru - a.soru)
+    .slice(0, 3);
+
   // Konu listesi kitabın bölümlerine göre (varsa); müfredattaki her başlık görünür,
   // müfredat dışı kalan etiketler sonda "Diğer" altında
   const bos = (konu: string): KonuSatiri => ({ konu, soru: 0, cozulen: 0, toplam: 0, dogru: 0, yanlis: 0, bos: 0 });
@@ -87,22 +110,6 @@ export default async function DersSayfasi({ params }: { params: Promise<{ ders: 
     { toplam: 0, dogru: 0, kayip: 0 },
   );
   const oran = t.toplam ? t.dogru / t.toplam : 0;
-
-  // En çok soru kaybedilen konular (yanlış + boş), en az 3 soru çözülmüş olanlar
-  const kayiplar: KonuOzeti[] = [...konular.values()]
-    .filter((k) => k.toplam >= 3 && k.yanlis + k.bos > 0)
-    .sort((a, b) => b.yanlis + b.bos - (a.yanlis + a.bos))
-    .slice(0, 5)
-    .map((k) => ({
-      anahtar: k.konu,
-      ders,
-      konu: k.konu,
-      toplam: k.toplam,
-      dogru: k.dogru,
-      yanlis: k.yanlis,
-      bos: k.bos,
-      oran: k.dogru / k.toplam,
-    }));
 
   return (
     <div className="space-y-6">
@@ -142,15 +149,15 @@ export default async function DersSayfasi({ params }: { params: Promise<{ ders: 
                 mod="zayif"
                 ders={ders}
                 adet={20}
-                etiket="Zayıf konularım"
-                aciklama="%70 altındaki konulardan"
+                etiket="Öncelikli konular"
+                aciklama="Ustalığı düşük, sık sorulan ve tekrarı gelen konular"
               />
               <DenemeBaslat
                 mod="yanlis"
                 ders={ders}
                 adet={20}
                 etiket="Yanlışlarım"
-                aciklama={`${tekrarQ.count ?? 0} soru · yanlışların ve emin olmadıkların`}
+                aciklama={`${tekrarQ.count ?? 0} soru bugün · ${acikQ.count ?? 0} açık hata`}
                 ikincil
               />
               <DenemeBaslat
@@ -179,16 +186,34 @@ export default async function DersSayfasi({ params }: { params: Promise<{ ders: 
             </div>
           </section>
 
-          {kayiplar.length > 0 && (
-            <section className="kart">
-              <h2 className="font-semibold">En çok soru kaybettiğin konular</h2>
-              <p className="mb-3 text-xs text-silik">Yanlış + boş sayısına göre · tüm zamanlar</p>
-              <div className="mb-3">
-                <BandAciklama />
+          <section className="kart">
+            <h2 className="font-semibold">Öncelikli konular</h2>
+            <p className="mb-3 text-xs text-silik">
+              Çalıştığın konular, en çok bakman gerekenden başlayarak. Ustalık son cevaplara ağırlık verir; hata
+              yaptığın soru 2, 7 ve 21 gün sonra yeniden sorulur, farklı günlerde art arda 4 kez emin doğru
+              yapınca öğrenilmiş sayılır.
+            </p>
+            <div className="mb-3">
+              <BandAciklama />
+            </div>
+            <OncelikListesi konular={oncelikli} paylar={paylar} bosMesaj="Bu dersten henüz soru çözmedin." />
+            {baslanmamis.length > 0 && (
+              <div className="mt-4 border-t border-cizgi pt-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-silik">
+                  Henüz başlamadığın büyük konular
+                </p>
+                <ul className="divide-y divide-cizgi">
+                  {baslanmamis.map((o) => (
+                    <li key={o.konu} className="flex items-center gap-3 py-2">
+                      <p className="min-w-0 flex-1 truncate text-sm">{o.konu}</p>
+                      <span className="shrink-0 text-xs text-silik tabular-nums">{o.soru} soru</span>
+                      <DenemeBaslat mod="konu" ders={ders} konu={o.konu} adet={20} etiket="Başla" ikincil kucuk />
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <KonuMetre satirlar={kayiplar} />
-            </section>
-          )}
+            )}
+          </section>
 
           <section className="kart">
             <h2 className="font-semibold">Konular</h2>
@@ -241,20 +266,24 @@ function KonuSatir({ ders, k }: { ders: string; k: KonuSatiri }) {
     );
   }
   const oran = k.toplam ? k.dogru / k.toplam : null;
-  const bilgi = oran === null ? null : BAND_BILGI[band(oran)];
+  const ustalik = k.o && k.o.deneme > 0 ? k.o.ustalik : null;
+  const bilgi = ustalik === null ? null : BAND_BILGI[band(ustalik)];
   return (
     <li className="flex items-center gap-3 py-2.5">
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm">{k.konu}</p>
         <p className="text-xs text-silik tabular-nums">
           {k.cozulen}/{k.soru} soru çözüldü
-          {oran !== null && bilgi && (
+          {oran !== null && ustalik !== null && bilgi && (
             <>
               {" · "}
               <span className={bilgi.metin}>
-                {bilgi.simge} {yuzde(oran)}
+                {bilgi.simge} ustalık {yuzde(ustalik)}
               </span>
-              {k.toplam < 5 ? " (henüz az veri)" : ""}
+              {" · "}
+              {yuzde(oran)} doğru
+              {(k.o?.kanit ?? 0) < AZ_KANIT ? " (henüz az veri)" : ""}
+              {(k.o?.acik_hata ?? 0) > 0 && <span className="text-zayif"> · {k.o!.acik_hata} açık hata</span>}
             </>
           )}
         </p>

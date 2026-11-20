@@ -3,7 +3,7 @@ import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
 
 /**
  * Soru bankası modunda soruyu işaretlemeden açıklamasına bakmak. Soru boş kalır ve
- * kilitlenir; "Yanlışlarım" tekrar listesine girer (v_son_cevap). Deneme modunda yok.
+ * kilitlenir; "Yanlışlarım" tekrar listesine girer (v_soru_durum). Deneme modunda yok.
  */
 export async function POST(request: Request) {
   const user = await oturumKullanicisi();
