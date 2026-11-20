@@ -210,6 +210,10 @@ Raporlarken:
 
 ## Kurallar
 
+- **Kullanıcıya bir sitede yapacağı adımları anlatırken her adıma doğrudan link ver** (ör. Vercel ortam
+  değişkenleri: https://vercel.com/ben-6a2b/analiz-uygulama/settings/environment-variables).
+  Kullanıcı mobilde, menü menü aramak zor.
+
 - **PDF'leri ve çıkarılan soru metinlerini repoya commit etme.** Repo herkese açık, soru kitapları telif kapsamında. Geçici dosyalar scratchpad'e.
 - Anahtar, şifre veya token yazdırma; `.env` dosyalarını commit etme.
 - Uygulama kodunda yapılan değişiklikten sonra `npx tsc --noEmit` ve `npm run build` çalıştır.
