@@ -21,7 +21,10 @@ import {
   sureleriOzetle,
   yuzde,
   type Donem,
-  type PerfSatiri,
+  konuSatirlari,
+  gunSatirlari,
+  type KonuToplamSatiri,
+  type GunToplamSatiri,
 } from "@/lib/analiz";
 import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
 
@@ -47,29 +50,25 @@ export default async function AnalizPage({
   // 84 gunluk pencere hem takvim hem de onceki donem karsilastirmasi icin yeter
   const takvimBaslangic = aktiviteGunleri([], 84)[0].gun;
 
-  const [simdiQ, oncekiQ, takvimQ] = await Promise.all([
-    baslangic
-      ? supabase.from("v_konu_performans").select("*").gte("gun", baslangic)
-      : supabase.from("v_konu_performans").select("*"),
-    onceki
-      ? supabase
-          .from("v_konu_performans")
-          .select("toplam, dogru")
-          .gte("gun", onceki.bas)
-          .lte("gun", onceki.son)
-      : Promise.resolve({ data: [] }),
-    supabase.from("v_konu_performans").select("gun, toplam, dogru").gte("gun", takvimBaslangic),
+  // Toplama veritabanında yapılır (perf_konu / perf_gun); ham satır çekilmez,
+  // böylece veri büyüdükçe 1000 satır sınırına takılıp eksik sonuç çıkmaz.
+  const aralik = baslangic ? { bas: baslangic } : {};
+  const [simdiQ, simdiGunQ, oncekiQ, takvimQ] = await Promise.all([
+    supabase.rpc("perf_konu", aralik),
+    supabase.rpc("perf_gun", aralik),
+    onceki ? supabase.rpc("perf_konu", { bas: onceki.bas, son: onceki.son }) : Promise.resolve({ data: [] }),
+    supabase.rpc("perf_gun", { bas: takvimBaslangic }),
   ]);
 
-  const satirlar = (simdiQ.data ?? []) as PerfSatiri[];
-  const oncekiSatirlar = (oncekiQ.data ?? []) as PerfSatiri[];
-  const takvimSatirlari = (takvimQ.data ?? []) as PerfSatiri[];
+  const satirlar = konuSatirlari(simdiQ.data as KonuToplamSatiri[]);
+  const oncekiSatirlar = konuSatirlari(oncekiQ.data as KonuToplamSatiri[]);
+  const takvimSatirlari = gunSatirlari(takvimQ.data as GunToplamSatiri[]);
 
   const ozet = ozetle(satirlar);
   const oncekiOzet = ozetle(oncekiSatirlar);
   const konular = konulariTopla(satirlar);
   const dersler = dersleriTopla(satirlar);
-  const gunler = gunlereBol(satirlar);
+  const gunler = gunlereBol(gunSatirlari(simdiGunQ.data as GunToplamSatiri[]));
   const sure = sureleriOzetle(satirlar);
   const takvim = aktiviteGunleri(takvimSatirlari, 84);
 

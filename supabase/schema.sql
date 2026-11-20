@@ -270,3 +270,60 @@ select user_id, ders, konu,
 from public.v_konu_performans
 group by user_id, ders, konu;
 grant select on public.v_konu_toplam to authenticated, service_role;
+
+-- ---------------------------------------------------------------- göç 4: ölçek
+-- PostgREST bir istekte en fazla 1000 satır döndürür. Analiz ham satır yerine
+-- veritabanında toplanmış özetleri çeker (konu başına / gün başına).
+create or replace function public.perf_konu(bas date default null, son date default null)
+returns table (ders text, konu text, toplam bigint, dogru bigint, yanlis bigint, bos bigint, ort_sure_sn numeric)
+language sql stable security invoker set search_path = public as $$
+  select ders, konu, sum(toplam), sum(dogru), sum(yanlis), sum(bos),
+         round(sum(ort_sure_sn * toplam) / nullif(sum(toplam) filter (where ort_sure_sn is not null), 0), 1)
+  from public.v_konu_performans
+  where user_id = auth.uid()
+    and (bas is null or gun >= bas) and (son is null or gun <= son)
+  group by ders, konu;
+$$;
+
+create or replace function public.perf_gun(bas date default null, son date default null)
+returns table (gun date, toplam bigint, dogru bigint, yanlis bigint, bos bigint)
+language sql stable security invoker set search_path = public as $$
+  select gun, sum(toplam), sum(dogru), sum(yanlis), sum(bos)
+  from public.v_konu_performans
+  where user_id = auth.uid()
+    and (bas is null or gun >= bas) and (son is null or gun <= son)
+  group by gun;
+$$;
+grant execute on function public.perf_konu(date, date), public.perf_gun(date, date) to authenticated, service_role;
+
+-- Set ilerlemesine dersi ekle (ders sayfası yalnızca kendi setlerini çeker)
+drop view if exists public.v_set_ilerleme;
+create view public.v_set_ilerleme with (security_invoker = true) as
+select distinct on (d.user_id, d.set_id)
+  d.user_id, d.set_id, st.ders, d.id as deneme_id, d.soru_sayisi, d.bitti_at,
+  (select count(*) from public.cevaplar c where c.deneme_id = d.id and c.isaretlenen is not null) as cevaplanan,
+  (select count(*) from public.cevaplar c where c.deneme_id = d.id and c.dogru is true) as dogru
+from public.denemeler d
+join public.soru_setleri st on st.id = d.set_id
+where d.set_id is not null
+order by d.user_id, d.set_id, d.created_at desc;
+grant select on public.v_set_ilerleme to authenticated, service_role;
+
+-- Her dersin kaynakları (panel kartları; set listesinin tamamını çekmeye gerek yok)
+create or replace view public.v_ders_kaynak with (security_invoker = true) as
+select user_id, ders, kaynak, count(*) as set_sayisi, sum(soru_sayisi) as soru
+from public.soru_setleri
+where ders is not null and kaynak is not null
+group by user_id, ders, kaynak;
+grant select on public.v_ders_kaynak to authenticated, service_role;
+
+-- Her sorunun son cevabı (Yanlışlarım: son cevabı yanlış olanlar)
+create or replace view public.v_son_cevap with (security_invoker = true) as
+select distinct on (c.user_id, c.soru_id)
+  c.user_id, c.soru_id, s.ders, s.konu, c.dogru, c.cevaplandi_at
+from public.cevaplar c
+join public.sorular s on s.id = c.soru_id
+where c.isaretlenen is not null and c.dogru is not null
+order by c.user_id, c.soru_id, c.cevaplandi_at desc nulls last;
+grant select on public.v_son_cevap to authenticated, service_role;
+create index if not exists cevaplar_soru_zaman_idx on public.cevaplar(user_id, soru_id, cevaplandi_at desc);

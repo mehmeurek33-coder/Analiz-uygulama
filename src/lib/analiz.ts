@@ -12,6 +12,28 @@ export type PerfSatiri = {
   ort_sure_sn: number | null;
 };
 
+/** perf_konu() satırı: dönem içinde ders+konu toplamı (gün yok). */
+export type KonuToplamSatiri = {
+  ders: string;
+  konu: string;
+  toplam: number;
+  dogru: number;
+  yanlis: number;
+  bos: number;
+  ort_sure_sn: number | null;
+};
+
+/** perf_gun() satırı: dönem içinde gün toplamı (ders/konu yok). */
+export type GunToplamSatiri = { gun: string; toplam: number; dogru: number; yanlis: number; bos: number };
+
+/** Veritabanında toplanmış satırları mevcut özet fonksiyonlarının beklediği biçime çevirir. */
+export function konuSatirlari(r: KonuToplamSatiri[] | null | undefined): PerfSatiri[] {
+  return (r ?? []).map((x) => ({ ...x, gun: "", alt_konu: null }));
+}
+export function gunSatirlari(r: GunToplamSatiri[] | null | undefined): PerfSatiri[] {
+  return (r ?? []).map((x) => ({ ...x, ders: "", konu: "", alt_konu: null, ort_sure_sn: null }));
+}
+
 export type Donem = "gun" | "hafta" | "ay" | "tum";
 
 export const DONEM_ADI: Record<Donem, string> = {

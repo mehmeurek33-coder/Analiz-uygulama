@@ -20,26 +20,36 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
   if (error) return NextResponse.json({ hata: error.message }, { status: 500 });
   if (!cevaplar?.length) return NextResponse.json({ hata: "Deneme bulunamadı." }, { status: 404 });
 
-  let dogru = 0;
-  let yanlis = 0;
+  // Sonuçları üç grupta topla, her grubu tek istekle yaz (200 soruda 200 istek yerine 3)
+  const gruplar: { dogru: string[]; yanlis: string[]; belirsiz: string[] } = { dogru: [], yanlis: [], belirsiz: [] };
   let bos = 0;
-
-  await Promise.all(
-    cevaplar.map(async (c) => {
-      const soru = c.sorular as unknown as { dogru_cevap: string | null } | null;
-      const anahtar = soru?.dogru_cevap ?? null;
-      let sonuc: boolean | null = null;
-
-      if (c.isaretlenen == null) {
-        bos++;
-      } else if (anahtar) {
-        sonuc = c.isaretlenen === anahtar;
-        if (sonuc) dogru++;
-        else yanlis++;
-      }
-      await supabase.from("cevaplar").update({ dogru: sonuc }).eq("id", c.id);
-    }),
-  );
+  for (const c of cevaplar) {
+    const soru = c.sorular as unknown as { dogru_cevap: string | null } | null;
+    const anahtar = soru?.dogru_cevap ?? null;
+    if (c.isaretlenen == null) {
+      bos++;
+      gruplar.belirsiz.push(c.id);
+    } else if (!anahtar) gruplar.belirsiz.push(c.id);
+    else if (c.isaretlenen === anahtar) gruplar.dogru.push(c.id);
+    else gruplar.yanlis.push(c.id);
+  }
+  const yaz = async (ids: string[], deger: boolean | null) => {
+    for (let i = 0; i < ids.length; i += 150) {
+      const { error: e } = await supabase
+        .from("cevaplar")
+        .update({ dogru: deger })
+        .in("id", ids.slice(i, i + 150))
+        .eq("user_id", user.id);
+      if (e) throw new Error(e.message);
+    }
+  };
+  try {
+    await Promise.all([yaz(gruplar.dogru, true), yaz(gruplar.yanlis, false), yaz(gruplar.belirsiz, null)]);
+  } catch (e) {
+    return NextResponse.json({ hata: (e as Error).message }, { status: 500 });
+  }
+  const dogru = gruplar.dogru.length;
+  const yanlis = gruplar.yanlis.length;
 
   await supabase
     .from("denemeler")

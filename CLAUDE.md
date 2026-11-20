@@ -155,8 +155,13 @@ Raporlarken:
   son oturumu: cevaplanan, doğru, bitti mi → "%x çözüldü" / "Tamamlandı").
 - **Yetkiler:** Yeni tablo veya görünüm eklersen `authenticated` rolüne `grant` vermeyi unutma (bu projede
   otomatik verilmiyor; vermeyince panel boş görünür).
-- **OCR araçları** (oturumlar arası kalıcı değil): taranmış kitaplar için tesseract-ocr-tur + pdftoppm ile
-  sütun sütun OCR, ardından ayrıştırma. Metin katmanı olan PDF'lerde gerek yok, Read aracı yeter.
+- **OCR hattı:** `scripts/ocr/` (yalnızca kod; README'de kurulum ve akış). Taranmış kitaplarda önce
+  bunu kullan: sayfaları tek tek okumaktan çok daha az kota harcar. Metin katmanı olan PDF'lerde gerek yok.
+- **Satır sınırı:** PostgREST bir istekte en fazla 1000 satır döndürür. Analiz için ham
+  `v_konu_performans` çekme; `perf_konu(bas, son)` / `perf_gun(bas, son)` RPC'lerini kullan.
+  Listeleri ders/set ile filtrele (`v_set_ilerleme.ders`, `v_ders_kaynak`, `v_son_cevap`).
+- **Kapasite:** Supabase Free (500 MB veritabanı; 7 gün hiç kullanılmazsa proje duraklar, panelden
+  "Restore" ile geri gelir; otomatik yedek yok). Soru başına ~2,5 KB.
 
 ## Kurallar
 

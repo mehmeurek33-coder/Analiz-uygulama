@@ -11,7 +11,8 @@ import {
   ozetle,
   sureleriOzetle,
   yuzde,
-  type PerfSatiri,
+  konuSatirlari,
+  type KonuToplamSatiri,
 } from "@/lib/analiz";
 import SetListesi, { kaynagaGore, type Ilerleme } from "@/components/SetListesi";
 import { MUFREDAT } from "@/lib/mufredat";
@@ -30,25 +31,20 @@ export default async function Panel() {
   const baslangic = donemBaslangici("hafta")!;
   const onceki = oncekiDonemAraligi("hafta")!;
 
-  const [setlerQ, denemelerQ, perfQ, soruSayisiQ, oncekiQ, ilerlemeQ, havuzQ] = await Promise.all([
-    supabase
-      .from("soru_setleri")
-      .select("*")
-      .order("ad", { ascending: true }),
+  const [setlerQ, denemelerQ, perfQ, soruSayisiQ, oncekiQ, ilerlemeQ, havuzQ, kaynakQ] = await Promise.all([
+    // Panelde yalnızca dersi belirsiz setler listelenir; dersli setler ders sayfasında
+    supabase.from("soru_setleri").select("*").is("ders", null).order("ad", { ascending: true }),
     supabase
       .from("denemeler")
       .select("id, ad, set_id, soru_sayisi, basladi_at, bitti_at")
       .order("created_at", { ascending: false })
       .limit(6),
-    supabase.from("v_konu_performans").select("*").gte("gun", baslangic),
+    supabase.rpc("perf_konu", { bas: baslangic }),
     supabase.from("sorular").select("id", { count: "exact", head: true }),
-    supabase
-      .from("v_konu_performans")
-      .select("toplam, dogru")
-      .gte("gun", onceki.bas)
-      .lte("gun", onceki.son),
-    supabase.from("v_set_ilerleme").select("set_id, soru_sayisi, cevaplanan, dogru, bitti_at"),
+    supabase.rpc("perf_konu", { bas: onceki.bas, son: onceki.son }),
+    supabase.from("v_set_ilerleme").select("set_id, soru_sayisi, cevaplanan, dogru, bitti_at").is("ders", null),
     supabase.from("v_konu_havuz").select("ders, soru, cozulen"),
+    supabase.from("v_ders_kaynak").select("ders, kaynak"),
   ]);
 
   // set_id -> en son oturumdaki ilerleme
@@ -58,7 +54,7 @@ export default async function Panel() {
 
   const setler = (setlerQ.data ?? []) as SoruSeti[];
   const denemeler = (denemelerQ.data ?? []) as Deneme[];
-  const perf = (perfQ.data ?? []) as PerfSatiri[];
+  const perf = konuSatirlari(perfQ.data as KonuToplamSatiri[]);
   const toplamSoru = soruSayisiQ.count ?? 0;
 
   // Ders kartları: havuzdaki soru, en az bir kez çözülen, kaynak adları, son 7 gün oranı
@@ -73,7 +69,7 @@ export default async function Panel() {
     b.soru += Number(h.soru);
     b.cozulen += Number(h.cozulen);
   }
-  for (const st of setler) if (st.ders && st.kaynak) bilgi(st.ders).kaynaklar.add(st.kaynak);
+  for (const k of kaynakQ.data ?? []) bilgi(k.ders).kaynaklar.add(k.kaynak);
   const haftalik = new Map<string, { t: number; d: number }>();
   for (const p of perf) {
     const h = haftalik.get(p.ders) ?? { t: 0, d: 0 };
@@ -81,11 +77,10 @@ export default async function Panel() {
     h.d += Number(p.dogru);
     haftalik.set(p.ders, h);
   }
-  const dersAdlari = new Set(MUFREDAT.map((d) => d.ders));
-  const digerSetler = setler.filter((st) => !st.ders || !dersAdlari.has(st.ders));
+  const digerSetler = setler;
 
   const ozet = ozetle(perf);
-  const oncekiOzet = ozetle((oncekiQ.data ?? []) as PerfSatiri[]);
+  const oncekiOzet = ozetle(konuSatirlari(oncekiQ.data as KonuToplamSatiri[]));
   const sure = sureleriOzetle(perf);
   const oranFarki = oncekiOzet.toplam > 0 && ozet.toplam > 0 ? fark(ozet.oran, oncekiOzet.oran) : null;
   const konular = konulariTopla(perf);
