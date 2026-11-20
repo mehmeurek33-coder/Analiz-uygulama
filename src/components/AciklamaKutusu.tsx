@@ -2,46 +2,110 @@
 
 import { useState } from "react";
 
+/** Açıklama bloğu: metin paragrafı ya da yalnızca kendisi kadar kırpılmış şekil/tablo. */
+export type AciklamaBlogu =
+  | { t: "m"; x: string }
+  | { t: "g"; yol: string; url?: string | null; w: number; h: number; tur?: string };
+
+/** Tam sütun kırpıntısının piksel genişliği: bu genişlikteki görüntü kutuyu doldurur. */
+const SUTUN_GENISLIGI = 720;
+
 /**
- * Kitap açıklaması. Sayfadan kesilmiş görüntü varsa önce o gösterilir (tablo ve şekiller
- * olduğu gibi, OCR hatası yok); metin hâli isteğe bağlı açılır. Görüntü yoksa metin.
+ * Kitap açıklaması.
+ * - Bloklar varsa: temiz metin + araya kitaptaki yerinde şekil/tablo kırpıntıları;
+ *   altta "Kitaptaki hâlini göster" ile açıklamanın tam sayfa görüntüsü.
+ * - Blok yoksa: tam görüntü (varsa), metin hâli isteğe bağlı.
+ * - Hiçbiri yoksa: metin.
  */
-export default function AciklamaKutusu({ metin, gorsel }: { metin: string | null; gorsel?: string | null }) {
-  const [metinAcik, setMetinAcik] = useState(false);
+export default function AciklamaKutusu({
+  metin,
+  gorsel,
+  bloklar,
+}: {
+  metin: string | null;
+  gorsel?: string | null;
+  bloklar?: AciklamaBlogu[] | null;
+}) {
+  const [ikinciAcik, setIkinciAcik] = useState(false);
   const [gorselHata, setGorselHata] = useState(false);
   const gorselVar = Boolean(gorsel) && !gorselHata;
 
-  if (!gorselVar) {
+  const tamGorsel = (
+    <div className="overflow-hidden rounded-xl border border-cizgi bg-white">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={gorsel!}
+        alt="Kitaptaki açıklama"
+        loading="lazy"
+        className="block h-auto w-full"
+        onError={() => setGorselHata(true)}
+      />
+    </div>
+  );
+  const metinKutusu = (x: string | null) => (
+    <div className="rounded-xl border border-cizgi bg-kart2 p-3 text-sm leading-relaxed whitespace-pre-wrap text-metin/90">
+      {x || "Bu soru için kitapta açıklama bulunamadı."}
+    </div>
+  );
+
+  // Bloklu görünüm
+  const goruntulenebilir = (bloklar ?? []).filter((b) => b.t === "m" || b.url);
+  if (goruntulenebilir.length > 0) {
     return (
-      <div className="rounded-xl border border-cizgi bg-kart2 p-3 text-sm leading-relaxed whitespace-pre-wrap text-metin/90">
-        {metin || "Bu soru için kitapta açıklama bulunamadı."}
+      <div className="space-y-2">
+        <div className="space-y-3 rounded-xl border border-cizgi bg-kart2 p-3 text-sm leading-relaxed text-metin/90">
+          {goruntulenebilir.map((b, i) =>
+            b.t === "m" ? (
+              <p key={i} className="whitespace-pre-wrap">
+                {b.x}
+              </p>
+            ) : (
+              <div key={i} className="rounded-lg bg-white p-1.5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={b.url!}
+                  alt={b.tur === "sekil" ? "Kitaptaki şekil" : "Kitaptaki tablo"}
+                  loading="lazy"
+                  width={b.w}
+                  height={b.h}
+                  className="mx-auto block h-auto"
+                  style={{ width: `${Math.min(100, (b.w / SUTUN_GENISLIGI) * 100)}%` }}
+                />
+              </div>
+            ),
+          )}
+        </div>
+        {gorselVar && (
+          <>
+            <button
+              type="button"
+              className="text-xs text-silik hover:text-metin hover:underline"
+              onClick={() => setIkinciAcik((a) => !a)}
+            >
+              {ikinciAcik ? "Kitaptaki hâlini gizle" : "Kitaptaki hâlini göster"}
+            </button>
+            {ikinciAcik && tamGorsel}
+          </>
+        )}
       </div>
     );
   }
 
+  if (!gorselVar) return metinKutusu(metin);
+
   return (
     <div className="space-y-2">
-      {/* Kitap sayfası beyaz zeminli; koyu temada da okunur kalsın diye beyaz çerçevede */}
-      <div className="overflow-hidden rounded-xl border border-cizgi bg-white">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={gorsel!}
-          alt="Kitaptaki açıklama"
-          loading="lazy"
-          className="block h-auto w-full"
-          onError={() => setGorselHata(true)}
-        />
-      </div>
+      {tamGorsel}
       {metin && (
         <>
-          <button type="button" className="text-xs text-silik hover:text-metin hover:underline" onClick={() => setMetinAcik((a) => !a)}>
-            {metinAcik ? "Metin hâlini gizle" : "Metin hâlini göster (kopyalamak için)"}
+          <button
+            type="button"
+            className="text-xs text-silik hover:text-metin hover:underline"
+            onClick={() => setIkinciAcik((a) => !a)}
+          >
+            {ikinciAcik ? "Metin hâlini gizle" : "Metin hâlini göster (kopyalamak için)"}
           </button>
-          {metinAcik && (
-            <div className="rounded-xl border border-cizgi bg-kart2 p-3 text-sm leading-relaxed whitespace-pre-wrap text-metin/90">
-              {metin}
-            </div>
-          )}
+          {ikinciAcik && metinKutusu(metin)}
         </>
       )}
     </div>

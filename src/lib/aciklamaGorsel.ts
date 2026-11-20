@@ -19,3 +19,22 @@ export async function gorselBaglantilari(yollar: (string | null | undefined)[]):
     return new Map();
   }
 }
+
+type HamBlok = { t: string; x?: string; yol?: string; w?: number; h?: number; tur?: string };
+
+/** Ham blok listelerindeki görüntü yolları (imzalı bağlantı üretmek için). */
+export function blokYollari(bloklar: unknown): string[] {
+  return Array.isArray(bloklar)
+    ? (bloklar as HamBlok[]).filter((b) => b.t === "g" && b.yol).map((b) => b.yol as string)
+    : [];
+}
+
+/** Ham blokları arayüzün beklediği biçime çevirir; görüntülere imzalı bağlantı ekler. */
+export function bloklariHazirla(bloklar: unknown, baglantilar: Map<string, string>) {
+  if (!Array.isArray(bloklar)) return null;
+  return (bloklar as HamBlok[]).map((b) =>
+    b.t === "g"
+      ? { t: "g" as const, yol: b.yol ?? "", url: b.yol ? (baglantilar.get(b.yol) ?? null) : null, w: b.w ?? 0, h: b.h ?? 0, tur: b.tur }
+      : { t: "m" as const, x: b.x ?? "" },
+  );
+}

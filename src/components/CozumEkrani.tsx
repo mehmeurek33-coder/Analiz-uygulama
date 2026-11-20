@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import AciklamaKutusu from "@/components/AciklamaKutusu";
+import AciklamaKutusu, { type AciklamaBlogu } from "@/components/AciklamaKutusu";
 
 export type Sonuc = {
   dogru: boolean | null;
@@ -10,6 +10,8 @@ export type Sonuc = {
   aciklama: string | null;
   /** Kitaptaki açıklamanın görüntüsü (imzalı bağlantı) */
   aciklamaGorsel?: string | null;
+  /** Metin + şekil/tablo blokları */
+  aciklamaBloklar?: AciklamaBlogu[] | null;
 };
 
 export type CozumSorusu = {
@@ -26,7 +28,12 @@ export type CozumSorusu = {
   /** Soru bankası modunda, cevaplanmış soruların sonucu */
   sonuc: Sonuc | null;
   /** Soru bankası modunda önceden yüklenen anahtar (anında geri bildirim için) */
-  anahtar?: { dogruCevap: string | null; aciklama: string | null; aciklamaGorsel?: string | null } | null;
+  anahtar?: {
+    dogruCevap: string | null;
+    aciklama: string | null;
+    aciklamaGorsel?: string | null;
+    aciklamaBloklar?: AciklamaBlogu[] | null;
+  } | null;
   /** "Emin değilim" işareti: doğru olsa da tekrar listesine girer */
   eminDegil?: boolean;
   /** İşaretlemeden açıklamasına bakıldı: boş sayılır, kilitli, tekrar listesinde */
@@ -133,7 +140,13 @@ export default function CozumEkrani({
     setBakildi((b) => ({ ...b, [id]: true }));
     setSonuclar((s) => ({
       ...s,
-      [id]: { dogru: null, dogruCevap: soru.anahtar!.dogruCevap, aciklama: soru.anahtar!.aciklama, aciklamaGorsel: soru.anahtar!.aciklamaGorsel },
+      [id]: {
+        dogru: null,
+        dogruCevap: soru.anahtar!.dogruCevap,
+        aciklama: soru.anahtar!.aciklama,
+        aciklamaGorsel: soru.anahtar!.aciklamaGorsel,
+        aciklamaBloklar: soru.anahtar!.aciklamaBloklar,
+      },
     }));
     setAciklamaAcik((a) => ({ ...a, [id]: true }));
     const istek = fetch("/api/aciklama-bak", {
@@ -181,7 +194,13 @@ export default function CozumEkrani({
       const dogru = onceden.dogruCevap ? harf === onceden.dogruCevap : null;
       setSonuclar((s) => ({
         ...s,
-        [id]: { dogru, dogruCevap: onceden.dogruCevap, aciklama: onceden.aciklama, aciklamaGorsel: onceden.aciklamaGorsel },
+        [id]: {
+          dogru,
+          dogruCevap: onceden.dogruCevap,
+          aciklama: onceden.aciklama,
+          aciklamaGorsel: onceden.aciklamaGorsel,
+          aciklamaBloklar: onceden.aciklamaBloklar,
+        },
       }));
       setAciklamaAcik((a) => ({ ...a, [id]: dogru === false }));
     }
@@ -412,7 +431,7 @@ export default function CozumEkrani({
               <div className="mt-3">
                 {acik ? (
                   <>
-                    <AciklamaKutusu metin={r.aciklama} gorsel={r.aciklamaGorsel} />
+                    <AciklamaKutusu metin={r.aciklama} gorsel={r.aciklamaGorsel} bloklar={r.aciklamaBloklar} />
                     {/* Gizle düğmesi açıklamanın altında: okuyup bitirince hemen kapatılsın */}
                     <button
                       type="button"

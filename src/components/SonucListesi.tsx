@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import AciklamaKutusu from "@/components/AciklamaKutusu";
+import AciklamaKutusu, { type AciklamaBlogu } from "@/components/AciklamaKutusu";
 import SoruDuzelt from "@/components/SoruDuzelt";
 
 export type SonucSatiri = {
@@ -17,6 +17,7 @@ export type SonucSatiri = {
   dogruCevap: string | null;
   aciklama: string | null;
   aciklamaGorsel?: string | null;
+  aciklamaBloklar?: AciklamaBlogu[] | null;
   ders: string | null;
   konu: string | null;
   altKonu: string | null;
@@ -134,9 +135,9 @@ export default function SonucListesi({ satirlar }: { satirlar: SonucSatiri[] }) 
                 />
               </div>
 
-              {(s.aciklama || s.aciklamaGorsel) && (
+              {(s.aciklama || s.aciklamaGorsel || s.aciklamaBloklar?.length) && (
                 <div className="mt-3">
-                  <AciklamaKutusu metin={s.aciklama} gorsel={s.aciklamaGorsel} />
+                  <AciklamaKutusu metin={s.aciklama} gorsel={s.aciklamaGorsel} bloklar={s.aciklamaBloklar} />
                 </div>
               )}
             </li>

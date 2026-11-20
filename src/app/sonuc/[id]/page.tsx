@@ -3,7 +3,7 @@ import BandAciklama from "@/components/BandAciklama";
 import IstatistikKarti from "@/components/IstatistikKarti";
 import KonuMetre from "@/components/KonuMetre";
 import SonucListesi, { type SonucSatiri } from "@/components/SonucListesi";
-import { gorselBaglantilari } from "@/lib/aciklamaGorsel";
+import { blokYollari, bloklariHazirla, gorselBaglantilari } from "@/lib/aciklamaGorsel";
 import { band, yuzde, type KonuOzeti } from "@/lib/analiz";
 import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
 
@@ -27,13 +27,16 @@ export default async function SonucPage({ params }: { params: Promise<{ id: stri
   const { data: satirlar } = await supabase
     .from("cevaplar")
     .select(
-      "id, soru_id, sira, isaretlenen, dogru, sure_sn, sorular(numara, metin, secenekler, dogru_cevap, aciklama, aciklama_gorsel, ders, konu, alt_konu)",
+      "id, soru_id, sira, isaretlenen, dogru, sure_sn, sorular(numara, metin, secenekler, dogru_cevap, aciklama, aciklama_gorsel, aciklama_bloklar, ders, konu, alt_konu)",
     )
     .eq("deneme_id", id)
     .order("sira", { ascending: true });
 
   const baglantilar = await gorselBaglantilari(
-    (satirlar ?? []).map((s) => (s.sorular as unknown as { aciklama_gorsel?: string | null })?.aciklama_gorsel),
+    (satirlar ?? []).flatMap((s) => {
+      const q = s.sorular as unknown as { aciklama_gorsel?: string | null; aciklama_bloklar?: unknown };
+      return [q?.aciklama_gorsel, ...blokYollari(q?.aciklama_bloklar)];
+    }),
   );
 
   const sonuclar: SonucSatiri[] = (satirlar ?? []).map((s) => {
@@ -44,6 +47,7 @@ export default async function SonucPage({ params }: { params: Promise<{ id: stri
       dogru_cevap: string | null;
       aciklama: string | null;
       aciklama_gorsel: string | null;
+      aciklama_bloklar: unknown;
       ders: string | null;
       konu: string | null;
       alt_konu: string | null;
@@ -61,6 +65,7 @@ export default async function SonucPage({ params }: { params: Promise<{ id: stri
       dogruCevap: soru?.dogru_cevap ?? null,
       aciklama: soru?.aciklama ?? null,
       aciklamaGorsel: soru?.aciklama_gorsel ? (baglantilar.get(soru.aciklama_gorsel) ?? null) : null,
+      aciklamaBloklar: bloklariHazirla(soru?.aciklama_bloklar, baglantilar),
       ders: soru?.ders ?? null,
       konu: soru?.konu ?? null,
       altKonu: soru?.alt_konu ?? null,

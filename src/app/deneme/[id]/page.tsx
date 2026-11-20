@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import CozumEkrani, { type CozumSorusu } from "@/components/CozumEkrani";
-import { gorselBaglantilari } from "@/lib/aciklamaGorsel";
+import { blokYollari, bloklariHazirla, gorselBaglantilari } from "@/lib/aciklamaGorsel";
 import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
   // Soru bankası modunda (kişisel çalışma) anında geri bildirim için önceden gönderilir;
   // arayüz cevap verilene kadar göstermez. Puanlama yine sunucuda yapılır.
   const alanlar = deneme.anlik
-    ? "numara, metin, secenekler, ders, konu, dogru_cevap, aciklama, aciklama_gorsel"
+    ? "numara, metin, secenekler, ders, konu, dogru_cevap, aciklama, aciklama_gorsel, aciklama_bloklar"
     : "numara, metin, secenekler, ders, konu";
 
   const { data: satirlar } = await supabase
@@ -38,7 +38,10 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
 
   const baglantilar = deneme.anlik
     ? await gorselBaglantilari(
-        (satirlar ?? []).map((s) => (s.sorular as unknown as { aciklama_gorsel?: string | null })?.aciklama_gorsel),
+        (satirlar ?? []).flatMap((s) => {
+          const q = s.sorular as unknown as { aciklama_gorsel?: string | null; aciklama_bloklar?: unknown };
+          return [q?.aciklama_gorsel, ...blokYollari(q?.aciklama_bloklar)];
+        }),
       )
     : new Map<string, string>();
 
@@ -52,11 +55,13 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
       dogru_cevap?: string | null;
       aciklama?: string | null;
       aciklama_gorsel?: string | null;
+      aciklama_bloklar?: unknown;
     };
+    const bloklar = bloklariHazirla(soru?.aciklama_bloklar, baglantilar);
     const gorsel = soru?.aciklama_gorsel ? (baglantilar.get(soru.aciklama_gorsel) ?? null) : null;
     const acik = Boolean(deneme.anlik && (s.isaretlenen || s.aciklama_bakildi));
     const anahtar = deneme.anlik
-      ? { dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null, aciklamaGorsel: gorsel }
+      ? { dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null, aciklamaGorsel: gorsel, aciklamaBloklar: bloklar }
       : null;
     return {
       cevapId: s.id,
@@ -70,7 +75,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
       ders: soru?.ders ?? null,
       konu: soru?.konu ?? null,
       sonuc: acik
-        ? { dogru: s.dogru, dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null, aciklamaGorsel: gorsel }
+        ? { dogru: s.dogru, dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null, aciklamaGorsel: gorsel, aciklamaBloklar: bloklar }
         : null,
       anahtar,
       eminDegil: Boolean(s.emin_degil),

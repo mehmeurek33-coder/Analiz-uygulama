@@ -495,3 +495,122 @@ update public.cevaplar c
    and d.bitti_at is not null and c.isaretlenen is null and not c.aciklama_bakildi
    and (not d.anlik or c.sira < son.son_sira)
 returning c.id;
+
+-- ---------------------------------------------------------------- göç 9: blok açıklama
+-- Açıklama blokları: metin paragrafları + yalnızca kendisi kadar kırpılmış şekil/tablo görüntüleri.
+-- [{"t":"m","x":"..."}, {"t":"g","yol":"<soru_id>-1.webp","w":705,"h":168,"tur":"sekil|tablo|genis"}]
+-- aciklama_gorsel: açıklamanın tam görüntüsü ("Kitaptaki hâlini göster"). aciklama: düz metin (arama, yedek).
+alter table public.sorular add column if not exists aciklama_bloklar jsonb;
+
+-- ---------------------------------------------------------------- göç 10: tekrar ve öncelik algoritması
+-- Her sayılan cevap bir "deneme" (attempt): başarı 1 = emin ve doğru, 0,5 = doğru ama "emin değilim",
+-- 0 = yanlış / boş geçilen / açıklamasına boş bakılan. Sayılma kuralı v_konu_performans ile aynı.
+create or replace view public.v_cevap_olay with (security_invoker = true) as
+select
+  c.user_id, c.soru_id, s.ders, s.konu,
+  coalesce(c.cevaplandi_at, d.bitti_at, d.basladi_at) as zaman,
+  case when c.dogru is true and not c.emin_degil then 1.0
+       when c.dogru is true then 0.5
+       else 0.0 end as basari
+from public.cevaplar c
+join public.denemeler d on d.id = c.deneme_id
+join public.sorular s on s.id = c.soru_id
+where ((not d.anlik and d.bitti_at is not null and c.dogru is not null)
+       or (not d.anlik and d.bitti_at is not null and c.isaretlenen is null)
+       or (d.anlik and ((c.isaretlenen is not null and c.dogru is not null) or c.aciklama_bakildi or c.bos_gecildi)));
+grant select on public.v_cevap_olay to authenticated, service_role;
+
+-- Soru durumu (aralıklı tekrar). Hiç hata yapılmamış soru "bilinen"dir, tekrar istemez.
+-- Hata yapılmış soru kutu 0'dan başlar; FARKLI günlerde art arda emin doğrularla kutu yükselir:
+--   kutu 0 → hemen, 1 → 2 gün, 2 → 7 gün, 3 → 21 gün sonra tekrar; kutu 4 = öğrenildi.
+-- Araya giren her yanlış/boş/emin olmayan cevap kutuyu sıfırlar.
+create or replace view public.v_soru_durum with (security_invoker = true) as
+with sirali as (
+  select o.*, row_number() over (partition by user_id, soru_id order by zaman desc) as rn
+  from public.v_cevap_olay o
+),
+ozet as (
+  select user_id, soru_id, max(ders) as ders, max(konu) as konu,
+         count(*) as deneme_sayisi,
+         bool_or(basari < 1) as hata_var,
+         count(*) filter (where basari < 1) as hata_sayisi,
+         max(zaman) as son_zaman,
+         -- en son tam başarısızlık olmayan (basari < 1) andan sonraki ardışık emin doğrular
+         min(rn) filter (where basari < 1) as ilk_hata_rn
+  from sirali group by user_id, soru_id
+),
+seri as (
+  select z.user_id, z.soru_id,
+         count(distinct (s.zaman at time zone 'Europe/Istanbul')::date) as seri_gun
+  from ozet z
+  join sirali s on s.user_id = z.user_id and s.soru_id = z.soru_id
+   and s.rn < coalesce(z.ilk_hata_rn, 1000000)
+  group by z.user_id, z.soru_id
+)
+select z.user_id, z.soru_id, z.ders, z.konu, z.deneme_sayisi, z.hata_sayisi, z.son_zaman,
+       case when not z.hata_var then 4 else least(coalesce(sr.seri_gun, 0), 4) end as kutu,
+       not z.hata_var as bilinen,
+       case when not z.hata_var then null
+            when coalesce(sr.seri_gun, 0) = 0 then z.son_zaman
+            when sr.seri_gun = 1 then z.son_zaman + interval '2 days'
+            when sr.seri_gun = 2 then z.son_zaman + interval '7 days'
+            when sr.seri_gun = 3 then z.son_zaman + interval '21 days'
+            else null end as sonraki_tekrar,
+       z.hata_var and coalesce(sr.seri_gun, 0) < 4 as acik_hata
+from ozet z
+left join seri sr on sr.user_id = z.user_id and sr.soru_id = z.soru_id;
+grant select on public.v_soru_durum to authenticated, service_role;
+
+-- Tekrar zamanı gelenler (Yanlışlarım'ın yerine): açık hata + tekrar tarihi geçmiş
+create or replace view public.v_tekrar_vadesi with (security_invoker = true) as
+select * from public.v_soru_durum
+where acik_hata and sonraki_tekrar <= now();
+grant select on public.v_tekrar_vadesi to authenticated, service_role;
+
+-- Konu ustalığı ve öncelik.
+--   ustalık = (2 + Σ w·başarı) / (4 + Σ w), w = exp(-yaş_gün / 30)  (yeni cevaplar ağır basar,
+--             az veride %50'ye çekilir)
+--   önem    = ln(1 + havuzdaki soru sayısı) / ln(1 + derste en kalabalık konunun soru sayısı)
+--             (Tüm TUS Soruları tüm çıkmış soruları içerir: soru sayısı ~ sınavda sorulma sıklığı)
+--   öncelik = önem × (1 - ustalık) + 0,04 × açık hata (en fazla 0,3) + 0,05 × vadesi gelen (en fazla 0,3)
+--             + hiç çalışılmamış konuya 0,15 × önem
+create or replace view public.v_konu_oncelik with (security_invoker = true) as
+with havuz as (
+  select user_id, ders, konu, count(*) as soru from public.sorular group by 1, 2, 3
+),
+ders_max as (
+  select user_id, ders, max(soru) as en_cok from havuz group by 1, 2
+),
+agirlik as (
+  select user_id, ders, konu,
+         sum(exp(-extract(epoch from (now() - zaman)) / 86400.0 / 30.0)) as w,
+         sum(exp(-extract(epoch from (now() - zaman)) / 86400.0 / 30.0) * basari) as wb,
+         count(*) as deneme, count(distinct soru_id) as cozulen
+  from public.v_cevap_olay group by 1, 2, 3
+),
+durum as (
+  select user_id, ders, konu,
+         count(*) filter (where acik_hata) as acik_hata,
+         count(*) filter (where acik_hata and sonraki_tekrar <= now()) as vadesi_gelen,
+         count(*) filter (where kutu >= 4 and not bilinen) as ogrenilen
+  from public.v_soru_durum group by 1, 2, 3
+)
+select h.user_id, h.ders, h.konu, h.soru,
+       coalesce(a.cozulen, 0) as cozulen, coalesce(a.deneme, 0) as deneme,
+       round(((2 + coalesce(a.wb, 0)) / (4 + coalesce(a.w, 0)))::numeric, 3) as ustalik,
+       round(coalesce(a.w, 0)::numeric, 2) as kanit,
+       coalesce(d.acik_hata, 0) as acik_hata,
+       coalesce(d.vadesi_gelen, 0) as vadesi_gelen,
+       coalesce(d.ogrenilen, 0) as ogrenilen,
+       round((ln(1 + h.soru) / nullif(ln(1 + m.en_cok), 0))::numeric, 3) as onem,
+       round((
+         (ln(1 + h.soru) / nullif(ln(1 + m.en_cok), 0)) * (1 - (2 + coalesce(a.wb, 0)) / (4 + coalesce(a.w, 0)))
+         + least(0.04 * coalesce(d.acik_hata, 0), 0.3)
+         + least(0.05 * coalesce(d.vadesi_gelen, 0), 0.3)
+         + case when coalesce(a.deneme, 0) = 0 then 0.15 * (ln(1 + h.soru) / nullif(ln(1 + m.en_cok), 0)) else 0 end
+       )::numeric, 3) as oncelik
+from havuz h
+join ders_max m on m.user_id = h.user_id and m.ders = h.ders
+left join agirlik a on a.user_id = h.user_id and a.ders = h.ders and a.konu = h.konu
+left join durum d on d.user_id = h.user_id and d.ders = h.ders and d.konu = h.konu;
+grant select on public.v_konu_oncelik to authenticated, service_role;
