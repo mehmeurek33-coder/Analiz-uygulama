@@ -327,3 +327,21 @@ where c.isaretlenen is not null and c.dogru is not null
 order by c.user_id, c.soru_id, c.cevaplandi_at desc nulls last;
 grant select on public.v_son_cevap to authenticated, service_role;
 create index if not exists cevaplar_soru_zaman_idx on public.cevaplar(user_id, soru_id, cevaplandi_at desc);
+
+-- ---------------------------------------------------------------- göç 5: emin değilim + yedek
+alter table public.cevaplar add column if not exists emin_degil boolean not null default false;
+
+-- Son cevap görünümüne emin_degil eklendi (yeni kolon sonda: create or replace yeterli)
+create or replace view public.v_son_cevap with (security_invoker = true) as
+select distinct on (c.user_id, c.soru_id)
+  c.user_id, c.soru_id, s.ders, s.konu, c.dogru, c.cevaplandi_at, c.emin_degil
+from public.cevaplar c
+join public.sorular s on s.id = c.soru_id
+where c.isaretlenen is not null and c.dogru is not null
+order by c.user_id, c.soru_id, c.cevaplandi_at desc nulls last;
+grant select on public.v_son_cevap to authenticated, service_role;
+
+-- Yedekler: gizli depo. Yalnızca sunucu (service_role) erişir; politika yok = istemciden erişilemez.
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('yedekler', 'yedekler', false, 52428800)
+on conflict (id) do nothing;

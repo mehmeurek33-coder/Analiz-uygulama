@@ -31,7 +31,7 @@ export default async function Panel() {
   const baslangic = donemBaslangici("hafta")!;
   const onceki = oncekiDonemAraligi("hafta")!;
 
-  const [setlerQ, denemelerQ, perfQ, soruSayisiQ, oncekiQ, ilerlemeQ, havuzQ, kaynakQ] = await Promise.all([
+  const [setlerQ, denemelerQ, perfQ, soruSayisiQ, oncekiQ, ilerlemeQ, havuzQ, kaynakQ, tekrarQ] = await Promise.all([
     // Panelde yalnızca dersi belirsiz setler listelenir; dersli setler ders sayfasında
     supabase.from("soru_setleri").select("*").is("ders", null).order("ad", { ascending: true }),
     supabase
@@ -45,6 +45,10 @@ export default async function Panel() {
     supabase.from("v_set_ilerleme").select("set_id, soru_sayisi, cevaplanan, dogru, bitti_at").is("ders", null),
     supabase.from("v_konu_havuz").select("ders, soru, cozulen"),
     supabase.from("v_ders_kaynak").select("ders, kaynak"),
+    supabase
+      .from("v_son_cevap")
+      .select("soru_id", { count: "exact", head: true })
+      .or("dogru.eq.false,emin_degil.eq.true"),
   ]);
 
   // set_id -> en son oturumdaki ilerleme
@@ -126,7 +130,7 @@ export default async function Panel() {
             mod="yanlis"
             adet={20}
             etiket="Yanlışlarım"
-            aciklama="Son cevabı yanlış olan sorular"
+            aciklama={`${tekrarQ.count ?? 0} soru · yanlışların ve emin olmadıkların`}
             ikincil
           />
         </div>
@@ -227,6 +231,12 @@ export default async function Panel() {
           </ul>
         )}
       </section>
+
+      <p className="text-center text-xs text-silik">
+        <Link href="/yedek" className="hover:text-metin hover:underline">
+          Yedekler
+        </Link>
+      </p>
     </div>
   );
 }

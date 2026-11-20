@@ -66,8 +66,13 @@ export async function POST(request: Request) {
   } else if (mod === "yanlis") {
     // Son cevabı yanlış olan sorular: sonradan doğru yaptığın soru listeden düşer.
     // ders verilirse yalnızca o dersin soruları.
-    // v_son_cevap her sorunun en son cevabını tutar (cevap geçmişi ne kadar uzun olursa olsun)
-    let sorgu = supabase.from("v_son_cevap").select("soru_id").eq("user_id", user.id).eq("dogru", false);
+    // v_son_cevap her sorunun en son cevabını tutar (cevap geçmişi ne kadar uzun olursa olsun).
+    // Tekrar listesi: son cevabı yanlış olanlar + doğru olsa da "emin değilim" işaretlenenler.
+    let sorgu = supabase
+      .from("v_son_cevap")
+      .select("soru_id")
+      .eq("user_id", user.id)
+      .or("dogru.eq.false,emin_degil.eq.true");
     if (ders) sorgu = sorgu.eq("ders", ders);
     const { data } = await sorgu.order("cevaplandi_at", { ascending: false }).limit(1000);
     soruIdleri = karistir((data ?? []).map((c) => c.soru_id as string)).slice(0, limit);

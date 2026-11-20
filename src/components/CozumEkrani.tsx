@@ -20,6 +20,8 @@ export type CozumSorusu = {
   sonuc: Sonuc | null;
   /** Soru bankası modunda önceden yüklenen anahtar (anında geri bildirim için) */
   anahtar?: { dogruCevap: string | null; aciklama: string | null } | null;
+  /** "Emin değilim" işareti: doğru olsa da tekrar listesine girer */
+  eminDegil?: boolean;
 };
 
 /**
@@ -47,6 +49,9 @@ export default function CozumEkrani({
     Object.fromEntries(sorular.filter((s) => s.sonuc).map((s) => [s.soruId, s.sonuc as Sonuc])),
   );
   const [aciklamaAcik, setAciklamaAcik] = useState<Record<string, boolean>>({});
+  const [eminDegil, setEminDegil] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(sorular.map((s) => [s.soruId, Boolean(s.eminDegil)])),
+  );
   const [bekleyen, setBekleyen] = useState<Record<string, boolean>>({});
   const [hatalar, setHatalar] = useState<Record<string, string>>({});
   const [bitiriliyor, setBitiriliyor] = useState(false);
@@ -79,6 +84,25 @@ export default function CozumEkrani({
     const sn = Math.round((Date.now() - sonIslem.current) / 1000);
     sonIslem.current = Date.now();
     return Math.min(sn, 600);
+  }
+
+  async function eminDegilDegistir(soruId: string) {
+    const yeni = !eminDegil[soruId];
+    setEminDegil((e) => ({ ...e, [soruId]: yeni }));
+    const istek = fetch("/api/emin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ denemeId, soruId, eminDegil: yeni }),
+    });
+    kayitlar.current.add(istek);
+    istek.finally(() => kayitlar.current.delete(istek)).catch(() => {});
+    try {
+      const cevap = await istek;
+      if (!cevap.ok) throw new Error();
+    } catch {
+      setEminDegil((e) => ({ ...e, [soruId]: !yeni }));
+      setHatalar((h) => ({ ...h, [soruId]: "İşaret kaydedilemedi, tekrar dene." }));
+    }
   }
 
   async function isaretle(soru: CozumSorusu, harf: string) {
@@ -214,7 +238,7 @@ export default function CozumEkrani({
                 type="button"
                 onClick={() => git(s.soruId)}
                 aria-label={`${i + 1}. soru${r ? (r.dogru ? ", doğru" : r.dogru === false ? ", yanlış" : "") : c ? ", cevaplandı" : ""}`}
-                className={`h-8 min-w-8 rounded-lg border px-1 text-xs font-semibold tabular-nums ${sinif}`}
+                className={`h-8 min-w-8 rounded-lg border px-1 text-xs font-semibold tabular-nums ${sinif} ${eminDegil[s.soruId] ? "ring-2 ring-orta" : ""}`}
               >
                 {i + 1}
               </button>
@@ -240,6 +264,19 @@ export default function CozumEkrani({
                   {r.dogru ? "✓ Doğru" : r.dogru === false ? "✗ Yanlış" : "Cevap anahtarı yok"}
                 </span>
               )}
+              <button
+                type="button"
+                onClick={() => eminDegilDegistir(soru.soruId)}
+                aria-pressed={Boolean(eminDegil[soru.soruId])}
+                title="Doğru yapsan da tekrar listene girer"
+                className={`ml-auto rounded-md border px-2 py-1 font-medium transition ${
+                  eminDegil[soru.soruId]
+                    ? "border-orta/70 bg-orta/15 text-orta"
+                    : "border-cizgi text-silik hover:border-orta/50 hover:text-metin"
+                }`}
+              >
+                {eminDegil[soru.soruId] ? "? Emin değilim ✓" : "? Emin değilim"}
+              </button>
             </div>
 
             <p className="leading-relaxed whitespace-pre-wrap">{soru.metin}</p>

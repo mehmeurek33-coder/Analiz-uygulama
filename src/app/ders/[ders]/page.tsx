@@ -31,11 +31,16 @@ export default async function DersSayfasi({ params }: { params: Promise<{ ders: 
   if (!tanim) notFound();
 
   const supabase = await sunucuIstemcisi();
-  const [setlerQ, ilerlemeQ, havuzQ, perfQ] = await Promise.all([
+  const [setlerQ, ilerlemeQ, havuzQ, perfQ, tekrarQ] = await Promise.all([
     supabase.from("soru_setleri").select("*").eq("ders", ders),
     supabase.from("v_set_ilerleme").select("set_id, soru_sayisi, cevaplanan, dogru, bitti_at").eq("ders", ders),
     supabase.from("v_konu_havuz").select("konu, soru, cozulen").eq("ders", ders),
     supabase.from("v_konu_toplam").select("konu, toplam, dogru, yanlis, bos").eq("ders", ders),
+    supabase
+      .from("v_son_cevap")
+      .select("soru_id", { count: "exact", head: true })
+      .eq("ders", ders)
+      .or("dogru.eq.false,emin_degil.eq.true"),
   ]);
 
   const setler = (setlerQ.data ?? []) as SoruSeti[];
@@ -145,7 +150,7 @@ export default async function DersSayfasi({ params }: { params: Promise<{ ders: 
                 ders={ders}
                 adet={20}
                 etiket="Yanlışlarım"
-                aciklama="Son cevabı yanlış olan sorular"
+                aciklama={`${tekrarQ.count ?? 0} soru · yanlışların ve emin olmadıkların`}
                 ikincil
               />
               <DenemeBaslat

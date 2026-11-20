@@ -143,7 +143,13 @@ Raporlarken:
   yanlışlarım). `/ders/<Ders>` = o dersin istatistikleri, derse özel denemeler, kaynaklar (her kaynak
   ayrı katlanır liste, bölüm bölüm ilerleme) ve konu listesi (konu konu deneme). Setin yeri
   `soru_setleri.ders`, `kaynak`, `bolum_no` kolonlarından gelir.
-- **Yanlışlarım:** son cevabı yanlış olan sorular; sonradan doğru yapılan soru listeden düşer.
+- **Yanlışlarım (tekrar listesi):** son cevabı yanlış olan sorular + doğru olsa da "emin değilim"
+  işaretlenenler (`cevaplar.emin_degil`, `v_son_cevap`). Sonradan emin olarak doğru yapılan soru düşer.
+- **Yedek:** Vercel cron (`vercel.json`, 3 günde bir 03:17 TR) → `GET /api/yedek` (`CRON_SECRET`) →
+  `src/lib/yedek.ts`: her tablo `yedekler/<YYYY-MM-DD_HHmm>/<tablo>.json.gz` (gizli depo, son 10).
+  `/yedek` sayfasında liste, indirme, "Şimdi yedekle". Geri yükleme: kullanıcı dosyaları gönderir,
+  Claude JSON'dan `insert ... on conflict (id) do nothing` (ya da `do update`) SQL'i üretip çalıştırır;
+  sıra: kullanici_profil, soru_setleri, sorular, denemeler, cevaplar.
 - **İki mod** (`soru_setleri.tur`, `denemeler.anlik`):
   - Soru bankası (`calisma`, varsayılan): her şık anında kontrol edilir, cevap kilitlenir, yanlışta açıklama
     açılır. Anahtar ve açıklama sayfayla önceden gelir (anında geri bildirim), kayıt arka planda yapılır.
@@ -160,8 +166,9 @@ Raporlarken:
 - **Satır sınırı:** PostgREST bir istekte en fazla 1000 satır döndürür. Analiz için ham
   `v_konu_performans` çekme; `perf_konu(bas, son)` / `perf_gun(bas, son)` RPC'lerini kullan.
   Listeleri ders/set ile filtrele (`v_set_ilerleme.ders`, `v_ders_kaynak`, `v_son_cevap`).
-- **Kapasite:** Supabase Free (500 MB veritabanı; 7 gün hiç kullanılmazsa proje duraklar, panelden
-  "Restore" ile geri gelir; otomatik yedek yok). Soru başına ~2,5 KB.
+- **Kapasite:** Supabase Free (500 MB veritabanı, 1 GB depolama, dosya başına 50 MB; 7 gün hiç
+  kullanılmazsa proje duraklar, panelden "Restore" ile geri gelir; Supabase'in kendi yedeği yok, bizim
+  yedeğimiz var). Soru başına ~2,5 KB. `sorular.json.gz` 50 MB'a yaklaşırsa yedeği parçala.
 
 ## Kurallar
 

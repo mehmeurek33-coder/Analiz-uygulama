@@ -31,7 +31,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
 
   const { data: satirlar } = await supabase
     .from("cevaplar")
-    .select(`id, soru_id, sira, isaretlenen, dogru, sure_sn, sorular(${alanlar})`)
+    .select(`id, soru_id, sira, isaretlenen, dogru, sure_sn, emin_degil, sorular(${alanlar})`)
     .eq("deneme_id", id)
     .order("sira", { ascending: true });
 
@@ -64,6 +64,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
         ? { dogru: s.dogru, dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null }
         : null,
       anahtar,
+      eminDegil: Boolean(s.emin_degil),
     };
   });
 
