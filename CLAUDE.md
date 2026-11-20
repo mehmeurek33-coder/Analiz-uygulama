@@ -169,7 +169,13 @@ Raporlarken:
   soruları yerinde güncellendi, id'ler aynı; 33 yeni 2025 sorusu eklendi, `numara` boş): 72 bölüm, 1525 soru,
   1471'inde açıklama, 1430'unda blok açıklama (`aciklama_bloklar`). 36. baskıda bulunamayan 66 eski soru
   silinmedi. Eşleştirme çıktıları scratchpad'de (`yeni/yapi.json`), araçlar `scripts/ocr/yeni_baski.py`,
-  `aciklama_blok.py`. Set adları `TTS Mikrobiyoloji · NN Bölüm adı`; ders `Mikrobiyoloji`, kaynak `Tüm TUS Soruları`.
+  `aciklama_blok.py`.
+- **Meditus Mikrobiyoloji** (6. baskı, "Tamamı Açıklamalı 1000 Güncel Soru", kitapta İmmünoloji 83 yok):
+  6 set `Meditus Mikrobiyoloji · 0N <Bölüm>` (Temel Mikrobiyoloji, İmmünoloji, Bakteriyoloji, Mikoloji,
+  Viroloji, Parazitoloji), 999 soru, 994'ünde blok açıklama (B2 klasörü `meditus-mikrobiyoloji/`).
+  Metin OCR'dan (taranmış kitap): küçük yazım hataları olabilir, kitaptaki görüntü açıklamada var.
+  Konular otomatik (TTS'ten en yakın komşu) + düşük güvenliler elle; kullanıcı yanlış etiket görürse düzelt.
+  Akış: `scripts/ocr/README.md` "Soru kitabı" bölümü. Set adları `TTS Mikrobiyoloji · NN Bölüm adı`; ders `Mikrobiyoloji`, kaynak `Tüm TUS Soruları`.
   Yedek tablo `public.aktarim_bekleyen` (RLS açık, yetki yok); silinebilir ama zararı yok.
 - **Düzen:** Panel = 11 ders kartı + tüm dersler için genel deneme (rastgele / öncelikli konular /
   yanlışlarım). `/ders/<Ders>` = o dersin istatistikleri, derse özel denemeler, kaynaklar (her kaynak

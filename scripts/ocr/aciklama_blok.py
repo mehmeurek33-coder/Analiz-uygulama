@@ -608,7 +608,9 @@ def main():
         if y["bitis"] is None or y["sik_son"] is None:
             rapor["aciklamasiz"] += 1
             continue
-        govde = list(range(y["sik_son"] + 1, y["bitis"]))
+        # sayfa numarasi, "»" gibi cop satirlar bolgeyi yukari genisletip siklari icine almasin
+        govde = [i for i in range(y["sik_son"] + 1, y["bitis"])
+                 if len(yb.satirlar[i][4].strip()) > 3 and not re.fullmatch(r"\W*\d{1,3}\W*", yb.satirlar[i][4].strip())]
         # son sikkin alt satira tasan devami
         son_sik = yb.norm(list(y["secenekler"].values())[-1]) if y["secenekler"] else ""
         while govde and son_sik and yb.norm(yb.satirlar[govde[0]][4]) and yb.norm(yb.satirlar[govde[0]][4]) in son_sik:

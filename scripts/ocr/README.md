@@ -55,3 +55,28 @@ cp scripts/ocr/bolumler_ornek_tts_mikro.py $S/araclar/bolumler.py   # sonra yeni
 eşleme, bölünen konularda anahtar kelime (kök → doğru şık → şıklar), belirsizleri
 `inceleme.txt`'ye yazar; elle kararlar `elle.json`. Kurallar Mikrobiyoloji içindir, yeni derste
 `BIRE_BIR` ve `B` sözlüklerini yeniden yaz.
+
+## Soru kitabı (Meditus tarzı: soru → şıklar → açıklama → "Doğru cevap: X")
+
+Meditus Mikrobiyoloji (6. baskı, 999 soru) böyle alındı. `<D>` = çalışma dizini (scratchpad).
+
+1. **OCR:** `OMP_THREAD_LIMIT=1 KOLON_ARALIK=820,945 KENAR_BEYAZ=100,1690 python3 -I ocr_kolon.py <pdf> <sayfa> <D>/ocr`
+   - `KOLON_ARALIK`: sütun arasının arandığı x aralığı (300 dpi px). Sütun arası 24 yatay bantta
+     boş olan pencereden bulunur; iki sütuna yayılan tablolar artık yanıltmaz. Önce birkaç sayfada ölç.
+   - `KENAR_BEYAZ`: metnin hiç girmediği dış şeritler; kenar sekmesi kırpılmaz, beyazlatılır
+     (eski "yoğun kolon = sekme" ölçütü hizalı metnin sol kenarını ve çerçeve çizgilerini de kesiyordu).
+   - Kesik sayfa kontrolü: kırpıntının kenarında mürekkep varsa (`pNNN-L.png` sol 4 px) sayfayı yeniden al.
+2. **`meditus_yapi.py <D> <bolumler.json>`** → `yapi.json`. Bölümler PDF sayfa aralığıyla
+   (`[{"no":1,"ad":"...","bas":5,"son":48}]`). Numara zinciri bölüm içinde; ilk hanesi taramada kesilen
+   numaralar ("8." → 18) iki komşu soru arasındaki konumdan bulunur; açıklamadaki numaralı liste
+   soru sanılmaz (gerçek soru cevap satırından sonra ya da sütun başında gelir). Rapor: eksik numara,
+   cevapsız. Kitapta gerçekten olmayan numara olabilir (Meditus İmmünoloji 83).
+3. **`meditus_soru.py <D>`** → `sorular.json`: şıklar sırayla A–E aranır (G)=C, €)=E, AJ=A),
+   öncül (I. II. III.) kökleri yeniden numaralanır, OCR artıkları temizlenir. Sorunlu çıkanları
+   `soru_kirp.py <D> <anahtarlar> <önek> [--siklar]` ile görüntüden oku, `elle_sik.json`,
+   `elle_kok.json`, `sik_son.json`'a yaz. Romen rakamlı şıkları ("I ve III") her zaman görüntüden oku.
+4. **`konu_tahmin.py <D>`**: etiketli sorulardan (`tts_etiket.json`: konu, alt_konu, metin, dogru, ac)
+   en yakın komşu; TTS'te birini-dışarıda-bırak doğruluğu %83. Güveni < 0,5 olanları kök + doğru
+   cevaptan elle kontrol et (`elle_konu.json`).
+5. `soru-ekle.ts` ile bölüm bölüm ekle, sonra `aciklama_blok.py <D>` (blok açıklama),
+   `meditus_aciklama.py <D> <b2_klasörü>` (yükleme listesi + update SQL) ve `b2_yukle.py`.

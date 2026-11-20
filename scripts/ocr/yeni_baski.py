@@ -20,7 +20,8 @@ import sys
 D = sys.argv[1]
 HARF = {"8": "B", "G": "C", "©": "C", "6": "C", "€": "E", "£": "E", "&": "E", "0": "D", "O": "D"}
 # "Dogru cevap" OCR'da bozulabiliyor ("Joğru cevap", "ığru cevap", "Doğru cevab"): sonu yeterli
-CEVAP = re.compile(r"(?:[ğg]|[ğg]r|)ru\s*ce[vy]a[pb]\s*[:;.]?\s*([A-E8G©€0O6&£])\b", re.I)
+# harfin yanina tek cop harf binebiliyor ("Cc", "GC" = C)
+CEVAP = re.compile(r"u\s*ce[vy]a[pb]\s*[:;.]?\s*([A-E8G©€0O6&£])[A-Ea-e]?\b", re.I)
 BAS = re.compile(r"^[\s\W_]{0,3}?(\d{1,3})\s?[.,]\s*(\S.{10,})$")
 SECENEK = re.compile(r"(?:^|\s)\(?[GOo0©6]?([A-E8G©€0O6&£])\s?[)\]}]")
 SIK_SATIRI = re.compile(r"^[\s\W]{0,3}[A-E8][)\]]")
