@@ -192,10 +192,14 @@ Raporlarken:
     doğrular FARKLI günlerde sayılır ve aralarında zaman geçmeli (kutu 3 için ≥4,5 gün, kutu 4 için ≥15 gün).
     Tekrar: kutu 0 hemen, 1 → 2 gün, 2 → 7 gün, 3 → 21 gün; kutu 4 öğrenildi. `acik_hata` = hatalı ve kutu < 4.
   - `v_tekrar_vadesi`: tekrar zamanı gelen açık hatalar → "Yanlışlarım" denemesi (düşük kutu önce).
-  - `v_konu_oncelik`: ustalık = (2 + Σw·başarı)/(4 + Σw), w = e^(−gün/30); önem = ln(1+konu sorusu)/ln(1+derste
-    en büyük konu); öncelik = önem·(1−ustalık) + 0,04·açık hata (≤0,3) + 0,05·vadesi gelen (≤0,3)
-    (+0,15·önem hiç çalışılmamışsa). "Öncelikli konular" denemesi: çalışılmış en öncelikli 6 konu, soru payı
+  - `v_konu_oncelik` (göç 12): ustalık = (2 + Σw·başarı)/(4 + Σw), w = e^(−gün/30); önem = ln(1+konu sorusu)/
+    ln(1+derste en büyük konu); güven = kanıt/(kanıt+4); öncelik = [önem·(1−ustalık)·(0,25+0,75·güven)
+    + 0,10·√açık hata (≤0,3) + 0,08·√vadesi gelen (≤0,25)] / (1 + son 36 saatteki cevap/20)
+    (+0,15·önem hiç çalışılmamışsa). Tek yanlış konuyu takıntı yapmasın diye: az kanıtta eksiklik
+    küçük sayılır, hata katkısı karekökle azalır, yeni çok çalışılan konu geri çekilir ve denemede az
+    çalışılmış konu en fazla max(3, 1,5×çözülen) soru alır. "Öncelikli konular" denemesi: çalışılmış en öncelikli 6 konu, soru payı
     öncelikle orantılı (`payDagit`); konu içinde sıra: vadesi gelen → hiç çözülmemiş → en eski bilinen.
+    Hiç çözülmemişler kaynaklar arasında sırayla karışır (TTS, Meditus, ...).
     Konu denemesi ("Çöz") de aynı sırayla seçer. Panel ve ders sayfası bu listeyi ve ustalığı gösterir.
 - **Tekrar çözüm:** `v_set_ilerleme` son tura ek olarak en çok soru çözülen bitmiş turu
   (`son_bitis_*`, `bitis_sayisi`) verir; tekrar turu yarıda kalsa da "Tamamlandı" görünür.

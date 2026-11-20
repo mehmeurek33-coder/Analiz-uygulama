@@ -663,3 +663,59 @@ select user_id, soru_id, ders, konu, deneme_sayisi, hata_sayisi, son_zaman, kutu
        hata_var and kutu < 4 as acik_hata
 from kutulu;
 grant select on public.v_soru_durum to authenticated, service_role;
+-- ---------------------------------------------------------------- göç 12: takıntı freni
+-- Tek bir yanlış bir konuyu listenin başına oturtmasın, yeni çalışılan konu art arda gelmesin:
+--   güven     = kanıt / (kanıt + 4)              (kanıt = Σ w, son cevaplar ağır)
+--   eksiklik  = önem × (1 − ustalık) × (0,25 + 0,75 × güven)   az veride eksiklik yarıdan az sayılır
+--   hata      = 0,10 × √açık hata (≤ 0,30), vade = 0,08 × √vadesi gelen (≤ 0,25)   (azalan getiri)
+--   doygunluk = 1 / (1 + son 36 saatteki cevap / 20)   bugün çok çalışılan konu biraz geri çekilir
+--   öncelik   = (eksiklik + hata + vade) × doygunluk  (+ hiç çalışılmamışsa 0,15 × önem)
+drop view if exists public.v_konu_oncelik;
+create view public.v_konu_oncelik with (security_invoker = true) as
+with havuz as (
+  select user_id, ders, konu, count(*) as soru from public.sorular group by 1, 2, 3
+),
+ders_max as (
+  select user_id, ders, max(soru) as en_cok from havuz group by 1, 2
+),
+agirlik as (
+  select user_id, ders, konu,
+         sum(exp(-extract(epoch from (now() - zaman)) / 86400.0 / 30.0)) as w,
+         sum(exp(-extract(epoch from (now() - zaman)) / 86400.0 / 30.0) * basari) as wb,
+         count(*) as deneme, count(distinct soru_id) as cozulen,
+         count(*) filter (where zaman > now() - interval '36 hours') as son36
+  from public.v_cevap_olay group by 1, 2, 3
+),
+durum as (
+  select user_id, ders, konu,
+         count(*) filter (where acik_hata) as acik_hata,
+         count(*) filter (where acik_hata and sonraki_tekrar <= now()) as vadesi_gelen,
+         count(*) filter (where kutu >= 4 and not bilinen) as ogrenilen
+  from public.v_soru_durum group by 1, 2, 3
+),
+h as (
+  select hv.user_id, hv.ders, hv.konu, hv.soru,
+         coalesce(a.cozulen, 0) as cozulen, coalesce(a.deneme, 0) as deneme, coalesce(a.son36, 0) as son36,
+         (2 + coalesce(a.wb, 0)) / (4 + coalesce(a.w, 0)) as ust,
+         coalesce(a.w, 0) as w,
+         coalesce(d.acik_hata, 0) as acik_hata, coalesce(d.vadesi_gelen, 0) as vadesi_gelen,
+         coalesce(d.ogrenilen, 0) as ogrenilen,
+         ln(1 + hv.soru) / nullif(ln(1 + m.en_cok), 0) as onem
+  from havuz hv
+  join ders_max m on m.user_id = hv.user_id and m.ders = hv.ders
+  left join agirlik a on a.user_id = hv.user_id and a.ders = hv.ders and a.konu = hv.konu
+  left join durum d on d.user_id = hv.user_id and d.ders = hv.ders and d.konu = hv.konu
+)
+select user_id, ders, konu, soru, cozulen, deneme, son36,
+       round(ust::numeric, 3) as ustalik,
+       round(w::numeric, 2) as kanit,
+       acik_hata, vadesi_gelen, ogrenilen,
+       round(onem::numeric, 3) as onem,
+       round((
+         (onem * (1 - ust) * (0.25 + 0.75 * w / (w + 4))
+          + least(0.10 * sqrt(acik_hata), 0.30)
+          + least(0.08 * sqrt(vadesi_gelen), 0.25)) / (1 + son36 / 20.0)
+         + case when deneme = 0 then 0.15 * onem else 0 end
+       )::numeric, 3) as oncelik
+from h;
+grant select on public.v_konu_oncelik to authenticated, service_role;

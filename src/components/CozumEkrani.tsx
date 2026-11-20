@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import AciklamaKutusu, { type AciklamaBlogu } from "@/components/AciklamaKutusu";
 
 export type Sonuc = {
@@ -170,13 +171,17 @@ export default function CozumEkrani({
     }
   }
 
-  /** Açıklamayı aç/kapat. Alttaki düğmeyle kapatınca sayfa sorunun dibinde kalsın. */
+  /**
+   * Açıklamayı aç/kapat. Alttaki "gizle" ile kapatınca ekran kaymasın: "göster" düğmesi tam olarak
+   * "gizle" düğmesinin durduğu yerde kalır, altındaki soru yerinden oynamaz (animasyonsuz, tek adım).
+   */
   function aciklamaDegistir(soruId: string, simdi: boolean, alttan = false) {
-    setAciklamaAcik((a) => ({ ...a, [soruId]: !simdi }));
-    if (simdi && alttan) {
-      requestAnimationFrame(() =>
-        document.getElementById(`soru-${soruId}`)?.scrollIntoView({ block: "end" }),
-      );
+    const kutu = document.getElementById(`aciklama-${soruId}`);
+    const once = simdi && alttan && kutu ? kutu.getBoundingClientRect().bottom : null;
+    flushSync(() => setAciklamaAcik((a) => ({ ...a, [soruId]: !simdi })));
+    if (once !== null && kutu) {
+      const fark = kutu.getBoundingClientRect().bottom - once;
+      if (fark) window.scrollTo({ top: window.scrollY + fark, behavior: "instant" });
     }
   }
 
@@ -428,7 +433,7 @@ export default function CozumEkrani({
             )}
 
             {r && (
-              <div className="mt-3">
+              <div className="mt-3" id={`aciklama-${soru.soruId}`} style={{ overflowAnchor: "none" }}>
                 {acik ? (
                   <>
                     <AciklamaKutusu metin={r.aciklama} gorsel={r.aciklamaGorsel} bloklar={r.aciklamaBloklar} />

@@ -9,7 +9,9 @@
  * Konu düzeyi (v_konu_oncelik):
  *   ustalık = (2 + Σ w·başarı) / (4 + Σ w), w = e^(-gün/30): yeni cevaplar ağır basar, az veride %50
  *   önem    = ln(1 + konudaki soru) / ln(1 + dersin en kalabalık konusu): çok sorulan konu önemli
- *   öncelik = önem·(1 − ustalık) + açık hata ve vadesi gelen tekrar katkısı (+ hiç çalışılmamışsa ek)
+ *   öncelik = [önem·(1 − ustalık)·(0,25 + 0,75·güven) + 0,10·√açık hata + 0,08·√vadesi gelen]
+ *             / (1 + son 36 saatteki cevap / 20)   (güven = kanıt/(kanıt+4); tek yanlış takıntı yapmaz)
+ * Konu içinde farklı kaynakların soruları sırayla karışır (api/deneme konudanSec).
  */
 
 export type KonuOncelik = {
@@ -23,12 +25,13 @@ export type KonuOncelik = {
   acik_hata: number;
   vadesi_gelen: number;
   ogrenilen: number;
+  son36: number;
   onem: number;
   oncelik: number;
 };
 
 export const ONCELIK_ALANLARI =
-  "ders, konu, soru, cozulen, deneme, ustalik, kanit, acik_hata, vadesi_gelen, ogrenilen, onem, oncelik";
+  "ders, konu, soru, cozulen, deneme, son36, ustalik, kanit, acik_hata, vadesi_gelen, ogrenilen, onem, oncelik";
 
 /** PostgREST numeric alanları metin döndürür: sayıya çevir. */
 export function oncelikSatiri(x: Record<string, unknown>): KonuOncelik {
@@ -44,6 +47,7 @@ export function oncelikSatiri(x: Record<string, unknown>): KonuOncelik {
     acik_hata: s("acik_hata"),
     vadesi_gelen: s("vadesi_gelen"),
     ogrenilen: s("ogrenilen"),
+    son36: s("son36"),
     onem: s("onem"),
     oncelik: s("oncelik"),
   };
@@ -74,8 +78,10 @@ export function payDagit(konular: KonuOncelik[], toplam: number): number[] {
         kalan--;
       }
     });
-  // en az 1, en fazla havuz
-  for (let i = 0; i < n; i++) pay[i] = Math.min(Math.max(pay[i], 1), Math.max(konular[i].soru, 0));
+  // en az 1, en fazla havuz. Az çalışılmış konu (tek yanlışla listeye girmiş olabilir) denemeyi
+  // doldurmasın: o konudan en fazla max(3, 1,5 × çözülen soru) soru gelir, artan pay diğerlerine geçer.
+  const tavan = (k: KonuOncelik) => Math.min(Math.max(k.soru, 0), Math.max(3, Math.ceil(1.5 * k.cozulen)));
+  for (let i = 0; i < n; i++) pay[i] = Math.min(Math.max(pay[i], 1), tavan(konular[i]));
   // toplamı tuttur: fazlayı en düşük öncelikliden al, eksiği yer olan en yüksek öncelikliye ver
   let fark = toplam - pay.reduce((a, b) => a + b, 0);
   for (let i = n - 1; fark < 0 && i >= 0; i--) {
@@ -84,7 +90,7 @@ export function payDagit(konular: KonuOncelik[], toplam: number): number[] {
     fark += al;
   }
   for (let i = 0; fark > 0 && i < n; i++) {
-    const ver = Math.min(konular[i].soru - pay[i], fark);
+    const ver = Math.min(tavan(konular[i]) - pay[i], fark);
     if (ver > 0) {
       pay[i] += ver;
       fark -= ver;

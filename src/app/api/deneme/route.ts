@@ -190,7 +190,13 @@ type Istemci = Awaited<ReturnType<typeof sunucuIstemcisi>>;
 async function konudanSec(supabase: Istemci, userId: string, ders: string, konu: string, adet: number) {
   if (adet <= 0) return [];
   const [havuzQ, durumQ] = await Promise.all([
-    supabase.from("sorular").select("id").eq("user_id", userId).eq("ders", ders).eq("konu", konu).limit(1000),
+    supabase
+      .from("sorular")
+      .select("id, set_id")
+      .eq("user_id", userId)
+      .eq("ders", ders)
+      .eq("konu", konu)
+      .limit(1000),
     supabase
       .from("v_soru_durum")
       .select("soru_id, kutu, bilinen, acik_hata, sonraki_tekrar, son_zaman")
@@ -199,6 +205,15 @@ async function konudanSec(supabase: Istemci, userId: string, ders: string, konu:
       .eq("konu", konu)
       .limit(1000),
   ]);
+  // Kaynak bilgisi: aynı konunun farklı kitaplardaki soruları sırayla karışsın
+  const setIdleri = [...new Set((havuzQ.data ?? []).map((x) => x.set_id as string | null).filter(Boolean))] as string[];
+  const { data: setler } = setIdleri.length
+    ? await supabase.from("soru_setleri").select("id, kaynak").in("id", setIdleri)
+    : { data: [] as { id: string; kaynak: string | null }[] };
+  const kaynakOf = new Map((setler ?? []).map((x) => [x.id as string, (x.kaynak as string | null) ?? "?"]));
+  const setOf = new Map((havuzQ.data ?? []).map((x) => [x.id as string, x.set_id as string | null]));
+  const kaynak = (id: string) => kaynakOf.get(setOf.get(id) ?? "") ?? "?";
+
   const simdi = Date.now();
   const durum = new Map((durumQ.data ?? []).map((d) => [d.soru_id as string, d]));
   const vade: { id: string; kutu: number; t: number }[] = [];
@@ -215,10 +230,25 @@ async function konudanSec(supabase: Istemci, userId: string, ders: string, konu:
   }
   return [
     ...vade.sort((a, b) => a.kutu - b.kutu || a.t - b.t).map((x) => x.id),
-    ...karistir(yeni),
+    ...kaynaklaraDagit(karistir(yeni), kaynak),
     ...bilinen.sort((a, b) => a.t - b.t).map((x) => x.id),
     ...bekleyen.sort((a, b) => a.t - b.t).map((x) => x.id),
   ].slice(0, adet);
+}
+
+/** Listeyi kaynaklar arasında sırayla dağıtır (A, B, A, B, ...); her kaynağın kendi sırası korunur. */
+function kaynaklaraDagit(idler: string[], kaynak: (id: string) => string) {
+  const gruplar = new Map<string, string[]>();
+  for (const id of idler) {
+    const k = kaynak(id);
+    gruplar.set(k, [...(gruplar.get(k) ?? []), id]);
+  }
+  const listeler = karistir([...gruplar.values()]);
+  const sonuc: string[] = [];
+  for (let i = 0; sonuc.length < idler.length; i++) {
+    for (const l of listeler) if (i < l.length) sonuc.push(l[i]);
+  }
+  return sonuc;
 }
 
 function karistir<T>(dizi: T[]): T[] {
