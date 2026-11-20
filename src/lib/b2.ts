@@ -29,9 +29,16 @@ export function b2Hazir() {
 
 async function yetkilen(): Promise<Yetki> {
   if (yetki && yetki.bitis > Date.now()) return yetki;
-  const kimlik = Buffer.from(`${process.env.B2_KEY_ID}:${process.env.B2_APPLICATION_KEY}`).toString("base64");
+  // Kopyalarken araya giren boşluk/satır sonu sık görülür: temizle
+  const keyId = (process.env.B2_KEY_ID ?? "").trim();
+  const appKey = (process.env.B2_APPLICATION_KEY ?? "").trim();
+  const kimlik = Buffer.from(`${keyId}:${appKey}`).toString("base64");
   const c = await fetch(`${API}/b2_authorize_account`, { headers: { Authorization: `Basic ${kimlik}` } });
-  if (!c.ok) throw new Error(`B2 yetki hatası: ${c.status}`);
+  if (!c.ok) {
+    // Teşhis: gizli kısmı göstermeden biçim (keyID ~25 karakter "00" ile, applicationKey ~31 karakter "K" ile başlar)
+    const bicim = `keyID ${keyId.length} karakter, "${keyId.slice(0, 2)}" ile başlıyor; applicationKey ${appKey.length} karakter, "${appKey.slice(0, 1)}" ile başlıyor`;
+    throw new Error(`B2 yetki hatası: ${c.status} (${bicim})`);
+  }
   const v = await c.json();
   const depo = v.apiInfo.storageApi;
   const ad = process.env.B2_BUCKET!;
