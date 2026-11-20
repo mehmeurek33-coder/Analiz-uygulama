@@ -3,7 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // /api/yedek: Vercel cron oturumsuz çağırır; rota kendisi CRON_SECRET ya da oturum ister
 // /api/gorsel-yukle: aktarım araçları oturumsuz çağırır; rota YUKLEME_ANAHTARI ister
-const ACIK_YOLLAR = ["/giris", "/api/kayit", "/api/yedek", "/api/gorsel-yukle", "/_next", "/favicon"];
+// /api/kaynak: aynı anahtarla kaynak PDF listesi/indirme bağlantısı
+const ACIK_YOLLAR = ["/giris", "/api/kayit", "/api/yedek", "/api/gorsel-yukle", "/api/kaynak", "/_next", "/favicon"];
 
 export async function middleware(request: NextRequest) {
   const yol = request.nextUrl.pathname;

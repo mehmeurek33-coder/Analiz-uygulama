@@ -109,3 +109,20 @@ export async function b2Yukle(yol: string, icerik: Buffer, tur: string) {
   }
   throw new Error("B2 yükleme başarısız");
 }
+
+/** Depodaki dosyaları listeler (en fazla 1000; kullanıcının yüklediği kaynak PDF'leri bulmak için). */
+export async function b2Listele(onek = "") {
+  const y = await yetkilen();
+  const c = await fetch(`${y.apiUrl}/b2api/v3/b2_list_file_names`, {
+    method: "POST",
+    headers: { Authorization: y.token },
+    body: JSON.stringify({ bucketId: y.bucketId, prefix: onek, maxFileCount: 1000 }),
+  });
+  if (!c.ok) throw new Error(`B2 listeleme: ${c.status}`);
+  const v = await c.json();
+  return (v.files ?? []).map((f: { fileName: string; contentLength: number; uploadTimestamp: number }) => ({
+    ad: f.fileName,
+    boyut: f.contentLength,
+    yuklendi: new Date(f.uploadTimestamp).toISOString(),
+  }));
+}
