@@ -220,3 +220,20 @@ where d.bitti_at is not null or (d.anlik and c.isaretlenen is not null)
 group by 1,2,3,4,5,6;
 
 grant select on public.v_konu_performans to authenticated, service_role;
+
+-- Set basina ilerleme: her setin en son oturumu, cevaplanan ve dogru sayisi
+create or replace view public.v_set_ilerleme
+with (security_invoker = true) as
+select distinct on (d.user_id, d.set_id)
+  d.user_id,
+  d.set_id,
+  d.id            as deneme_id,
+  d.soru_sayisi,
+  d.bitti_at,
+  (select count(*) from public.cevaplar c where c.deneme_id = d.id and c.isaretlenen is not null) as cevaplanan,
+  (select count(*) from public.cevaplar c where c.deneme_id = d.id and c.dogru is true)           as dogru
+from public.denemeler d
+where d.set_id is not null
+order by d.user_id, d.set_id, d.created_at desc;
+
+grant select on public.v_set_ilerleme to authenticated, service_role;

@@ -68,7 +68,9 @@ select id from auth.users order by created_at limit 1;
 
 ## Analiz ("analizimi yap")
 
-Sorgular `v_konu_performans` üzerinde çalışır. Yalnızca bitirilmiş denemeler sayılır.
+Sorgular `v_konu_performans` üzerinde çalışır. Bitirilmiş denemelerin tüm cevapları ve soru
+bankası (anlık) oturumlarının o ana kadar cevaplanmış soruları sayılır; boş sayısı yalnızca
+bitirilmiş denemelerden gelir.
 
 ```sql
 -- dönem özeti (son 7 gün; 30 gün için 29)
@@ -104,6 +106,27 @@ Raporlarken:
 - Bantlar uygulamayla aynı: %70 ve üzeri iyi, %50-69 geliştirilmeli, %50 altı eksik.
 - Boş ağırlıklıysa konu eksiği (tekrar et), yanlış ağırlıklıysa yanlış bilgi/çeldirici (soru çöz, çözümleri oku).
 - Önceki dönemle kıyasla, somut bir sonraki adım öner.
+
+## Mevcut durum (her oturumda buradan devam et)
+
+- **Canlı adres:** https://analiz-uygulama.vercel.app — Vercel projesi `prj_BgWUXNUwRwInDqCATPVq2fvcs9re`,
+  GitHub `mehmeurek33-coder/Analiz-uygulama`, üretim dalı `claude/question-practice-analyzer-9xu016`.
+  Bu dala push otomatik yayınlanır. Fonksiyon bölgesi `vercel.json` ile Dublin (`dub1`), veritabanına yakın.
+- **Yüklü kitap:** TUSDATA Tüm TUS Soruları – Mikrobiyoloji (35. baskı): 72 bölüm, 1492 soru, 1360'ında
+  kitap açıklaması var. Set adları `TTS Mikrobiyoloji · NN Bölüm adı`; panel `·` öncesine göre kitap kitap gruplar.
+  Yedek tablo `public.aktarim_bekleyen` (RLS açık, yetki yok); silinebilir ama zararı yok.
+- **İki mod** (`soru_setleri.tur`, `denemeler.anlik`):
+  - Soru bankası (`calisma`, varsayılan): her şık anında kontrol edilir, cevap kilitlenir, yanlışta açıklama
+    açılır. Anahtar ve açıklama sayfayla önceden gelir (anında geri bildirim), kayıt arka planda yapılır.
+    Bölüm yarıda bırakılırsa "Devam et" aynı oturumu açar.
+  - Deneme (`deneme`): sonuçlar ve açıklamalar "Bitir"den sonra; anahtar tarayıcıya hiç gönderilmez.
+  - Hızlı denemeler (rastgele / zayıf konular / yanlışlarım / konu) her zaman soru bankası modundadır.
+- **Görünümler:** `v_konu_performans` (analiz), `v_set_ilerleme` (her setin son oturumu: cevaplanan, doğru,
+  bitti mi → panelde "%x çözüldü" / "Tamamlandı").
+- **Yetkiler:** Yeni tablo veya görünüm eklersen `authenticated` rolüne `grant` vermeyi unutma (bu projede
+  otomatik verilmiyor; vermeyince panel boş görünür).
+- **OCR araçları** (oturumlar arası kalıcı değil): taranmış kitaplar için tesseract-ocr-tur + pdftoppm ile
+  sütun sütun OCR, ardından ayrıştırma. Metin katmanı olan PDF'lerde gerek yok, Read aracı yeter.
 
 ## Kurallar
 

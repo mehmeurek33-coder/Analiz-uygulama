@@ -18,6 +18,8 @@ export type CozumSorusu = {
   konu: string | null;
   /** Soru bankası modunda, cevaplanmış soruların sonucu */
   sonuc: Sonuc | null;
+  /** Soru bankası modunda önceden yüklenen anahtar (anında geri bildirim için) */
+  anahtar?: { dogruCevap: string | null; aciklama: string | null } | null;
 };
 
 /**
@@ -48,6 +50,8 @@ export default function CozumEkrani({
   const [bekleyen, setBekleyen] = useState<Record<string, boolean>>({});
   const [hatalar, setHatalar] = useState<Record<string, string>>({});
   const [bitiriliyor, setBitiriliyor] = useState(false);
+  // Arka planda süren cevap kayıtları; "Bitir" önce bunların bitmesini bekler
+  const kayitlar = useRef(new Set<Promise<unknown>>());
   const [onay, setOnay] = useState(false);
   const [genelHata, setGenelHata] = useState<string | null>(null);
   const [gecenSn, setGecenSn] = useState(0);
@@ -84,6 +88,14 @@ export default function CozumEkrani({
 
     const yeni = !anlik && cevaplar[id] === harf ? null : harf;
     setCevaplar((c) => ({ ...c, [id]: yeni }));
+
+    // Anında geri bildirim: anahtar önceden yüklüyse sunucuyu beklemeden göster
+    const onceden = anlik && soru.anahtar ? soru.anahtar : null;
+    if (onceden) {
+      const dogru = onceden.dogruCevap ? harf === onceden.dogruCevap : null;
+      setSonuclar((s) => ({ ...s, [id]: { dogru, dogruCevap: onceden.dogruCevap, aciklama: onceden.aciklama } }));
+      setAciklamaAcik((a) => ({ ...a, [id]: dogru === false }));
+    }
     setHatalar((h) => {
       const k = { ...h };
       delete k[id];
@@ -92,15 +104,18 @@ export default function CozumEkrani({
     setBekleyen((b) => ({ ...b, [id]: true }));
 
     try {
-      const cevap = await fetch("/api/cevap", {
+      const istek = fetch("/api/cevap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ denemeId, soruId: id, isaretlenen: yeni, sureSn: sureAl() }),
       });
+      kayitlar.current.add(istek);
+      istek.finally(() => kayitlar.current.delete(istek)).catch(() => {});
+      const cevap = await istek;
       const veri = await cevap.json();
       if (!cevap.ok) throw new Error(veri.hata || "Cevap kaydedilemedi.");
 
-      if (anlik) {
+      if (anlik && !onceden) {
         setCevaplar((c) => ({ ...c, [id]: veri.isaretlenen }));
         setSonuclar((s) => ({
           ...s,
@@ -110,7 +125,15 @@ export default function CozumEkrani({
         setAciklamaAcik((a) => ({ ...a, [id]: veri.dogru === false }));
       }
     } catch (e) {
-      if (anlik) setCevaplar((c) => ({ ...c, [id]: null }));
+      if (anlik) {
+        // Kayıt başarısızsa geri al ki tekrar denenebilsin
+        setCevaplar((c) => ({ ...c, [id]: null }));
+        setSonuclar((s) => {
+          const k = { ...s };
+          delete k[id];
+          return k;
+        });
+      }
       setHatalar((h) => ({ ...h, [id]: e instanceof Error ? e.message : "Hata" }));
     } finally {
       setBekleyen((b) => ({ ...b, [id]: false }));
@@ -121,6 +144,7 @@ export default function CozumEkrani({
     setBitiriliyor(true);
     setGenelHata(null);
     try {
+      await Promise.allSettled([...kayitlar.current]);
       const cevap = await fetch(`/api/deneme/${denemeId}/bitir`, { method: "POST" });
       const veri = await cevap.json();
       if (!cevap.ok) throw new Error(veri.hata || "Bitirilemedi.");
@@ -243,7 +267,7 @@ export default function CozumEkrani({
                   <button
                     key={harf}
                     type="button"
-                    disabled={Boolean(r) || bekleyen[soru.soruId]}
+                    disabled={Boolean(r) || (!anlik && bekleyen[soru.soruId])}
                     onClick={() => isaretle(soru, harf)}
                     className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition disabled:cursor-default ${sinif}`}
                   >

@@ -22,9 +22,9 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
   }
   if (deneme.bitti_at) redirect(`/sonuc/${id}`);
 
-  // DİKKAT: dogru_cevap ve aciklama yalnızca soru bankası modunda ve yalnızca
-  // CEVAPLANMIŞ sorular için istemciye gönderilir. Cevaplanmamış soruların doğru
-  // şıkkı tarayıcıya hiç gitmez.
+  // DİKKAT: Deneme modunda dogru_cevap ve aciklama istemciye HİÇ gönderilmez.
+  // Soru bankası modunda (kişisel çalışma) anında geri bildirim için önceden gönderilir;
+  // arayüz cevap verilene kadar göstermez. Puanlama yine sunucuda yapılır.
   const alanlar = deneme.anlik
     ? "numara, metin, secenekler, ders, konu, dogru_cevap, aciklama"
     : "numara, metin, secenekler, ders, konu";
@@ -46,6 +46,9 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
       aciklama?: string | null;
     };
     const acik = Boolean(deneme.anlik && s.isaretlenen);
+    const anahtar = deneme.anlik
+      ? { dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null }
+      : null;
     return {
       cevapId: s.id,
       soruId: s.soru_id,
@@ -60,6 +63,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
       sonuc: acik
         ? { dogru: s.dogru, dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null }
         : null,
+      anahtar,
     };
   });
 

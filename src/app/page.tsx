@@ -28,7 +28,7 @@ export default async function Panel() {
   const baslangic = donemBaslangici("hafta")!;
   const onceki = oncekiDonemAraligi("hafta")!;
 
-  const [setlerQ, denemelerQ, perfQ, soruSayisiQ, oncekiQ] = await Promise.all([
+  const [setlerQ, denemelerQ, perfQ, soruSayisiQ, oncekiQ, ilerlemeQ] = await Promise.all([
     supabase
       .from("soru_setleri")
       .select("*")
@@ -45,7 +45,13 @@ export default async function Panel() {
       .select("toplam, dogru")
       .gte("gun", onceki.bas)
       .lte("gun", onceki.son),
+    supabase.from("v_set_ilerleme").select("set_id, soru_sayisi, cevaplanan, dogru, bitti_at"),
   ]);
+
+  // set_id -> en son oturumdaki ilerleme
+  const ilerleme = new Map<string, Ilerleme>(
+    ((ilerlemeQ.data ?? []) as Ilerleme[]).map((x) => [x.set_id, x]),
+  );
 
   const setler = (setlerQ.data ?? []) as SoruSeti[];
   const denemeler = (denemelerQ.data ?? []) as Deneme[];
@@ -164,8 +170,11 @@ export default async function Panel() {
                     ▸
                   </span>
                   <span className="min-w-0 flex-1 truncate font-medium">{kitap}</span>
-                  <span className="shrink-0 text-xs text-silik tabular-nums">
-                    {liste.length} bölüm · {liste.reduce((a, x) => a + x.soru_sayisi, 0)} soru
+                  <span className="shrink-0 text-right text-xs text-silik tabular-nums">
+                    {liste.filter((x) => ilerleme.get(x.id)?.bitti_at).length}/{liste.length} bölüm bitti
+                    <br />
+                    {liste.reduce((a, x) => a + Number(ilerleme.get(x.id)?.cevaplanan ?? 0), 0)}/
+                    {liste.reduce((a, x) => a + x.soru_sayisi, 0)} soru
                   </span>
                 </summary>
                 <ul className="divide-y divide-cizgi border-t border-cizgi">
@@ -180,16 +189,28 @@ export default async function Panel() {
                             </span>
                           )}
                         </p>
+                        <SetIlerleme soruSayisi={s.soru_sayisi} il={ilerleme.get(s.id)} />
                         <p className="text-xs text-silik">
-                          {s.soru_sayisi} soru
-                          {s.durum === "hata" ? ` · hata: ${s.hata ?? ""}` : ""}
+                          {s.durum === "hata" ? `hata: ${s.hata ?? ""}` : ""}
                           {s.durum !== "hazir" && s.durum !== "hata"
                             ? ` · ${s.islenen_parca}/${s.parca_sayisi} parça işlendi`
                             : ""}
                         </p>
                       </div>
                       {s.durum === "hazir" || s.soru_sayisi > 0 ? (
-                        <DenemeBaslat mod="tumu" setId={s.id} etiket="Çöz" ikincil kucuk />
+                        <DenemeBaslat
+                          mod="tumu"
+                          setId={s.id}
+                          etiket={
+                            !ilerleme.get(s.id)
+                              ? "Çöz"
+                              : ilerleme.get(s.id)?.bitti_at
+                                ? "Tekrar çöz"
+                                : "Devam et"
+                          }
+                          ikincil
+                          kucuk
+                        />
                       ) : (
                         <Link href={`/yukle?set=${s.id}`} className="btn-ikincil px-3 py-1.5 text-xs">
                           Devam et
@@ -241,4 +262,44 @@ export default async function Panel() {
 
 function bolumAdi(ad: string) {
   return ad.includes(" · ") ? ad.split(" · ").slice(1).join(" · ") : ad;
+}
+
+type Ilerleme = {
+  set_id: string;
+  soru_sayisi: number;
+  cevaplanan: number;
+  dogru: number;
+  bitti_at: string | null;
+};
+
+/** Bölümün durumu: başlanmadı / yüzde kaç çözüldü / tamamlandı + doğru oranı. */
+function SetIlerleme({ soruSayisi, il }: { soruSayisi: number; il?: Ilerleme }) {
+  if (!il) {
+    return <p className="text-xs text-silik">{soruSayisi} soru · başlanmadı</p>;
+  }
+  const cevap = Number(il.cevaplanan);
+  const toplam = Number(il.soru_sayisi) || soruSayisi;
+  const yuzde = Math.round((cevap / toplam) * 100);
+  const dogruOran = cevap ? Math.round((Number(il.dogru) / cevap) * 100) : 0;
+  return (
+    <div className="mt-1">
+      <p className="text-xs tabular-nums">
+        {il.bitti_at ? (
+          <span className="font-semibold text-iyi">✓ Tamamlandı</span>
+        ) : (
+          <span className="font-semibold text-vurgu">%{yuzde} çözüldü</span>
+        )}
+        <span className="text-silik">
+          {" "}
+          · {cevap}/{toplam} soru{cevap > 0 ? ` · %${dogruOran} doğru` : ""}
+        </span>
+      </p>
+      <div className="mt-1 h-1 w-full max-w-48 overflow-hidden rounded-[4px] bg-zemin">
+        <div
+          className={`h-full rounded-[4px] ${il.bitti_at ? "bg-iyi" : "bg-vurgu"}`}
+          style={{ width: `${Math.max(yuzde, cevap ? 3 : 0)}%` }}
+        />
+      </div>
+    </div>
+  );
 }
