@@ -243,7 +243,8 @@ def asama_yapi(D, bolumler=None):
 # --- metin denetimi: aktarımdan önce kök/şık metnindeki bilinen OCR bozulmaları ---------------------------
 # Hepsi gerçek veride görüldü (docs/HATALAR.md B13-B16). Rapor eder; düzeltme görüntüyle yapılır.
 _ISARET_BOZUK = re.compile(r"\((?:4|\*|1|t|9|5|<|#|#9)\)")  # (+) → (4)(*)(1)(t), (-) → (9)(5)(<)
-_ARTIK = re.compile(r"(©|€|£|\s\|\s|^\|\s|\bOo\b|\boo\b|\bo[A-ZÇĞİÖŞÜ]|\(o\s|H,N,|\bIl\b|\b111\b|\bLU\b)")
+_ARTIK = re.compile(r"(©|€|£|\s\|\s|^\|\s|\bOo\b|\boo\b|\bo[A-ZÇĞİÖŞÜ]|\(o\s|H,N,|\bIl\b|\b111\b|\bLU\b"
+                    r"|(?<![\d.,])9[0256]\d{1,3}\b|\d\s?[“”*9]\s?C\b|/mm[9“”]|\b8OS\b|\bCOJ|\d\s?um\b|\b\d{1,2}u\b)")
 _ROMEN_SIK = re.compile(r"^(Yalnız\s+)?(I{1,3}|IV|VI{0,3})(\s*(,|ve)\s*(I{1,3}|IV|VI{0,3}))*\.?$")
 _SON_OK = re.compile(r"(\?|\)|:|\.)\s*$")
 
@@ -288,6 +289,31 @@ def asama_metin(girdi):
         for alan, tur, parca in metin_sorunlari(s.get("metin") or s.get("kok"), s.get("secenekler")):
             sayac[tur] += 1
             rapor.append({"soru": anahtar, "alan": alan, "tur": tur, "parca": parca})
+    # Harf karışıklığı: bir kez geçen kelime, sık geçen bir kelimeden yalnızca OCR'ın karıştırdığı harflerle
+    # (l/t/i/f, e/c, r/n, o/0 ...) ayrılıyorsa ("Btastomyces" ← "Blastomyces"). Sözlük girdinin kendisi
+    # (+ varsa açıklamalar); büyük kitapta yeterince güçlü, küçük girdide daha az bulur.
+    kar = [set("lti1ıj|!f"), set("ec"), set("rn"), set("o0ö"), set("uü"), set("gğ"), set("sş5$"), set("cç"), set("ıi")]
+    kucuk = lambda w: w.replace("I", "ı").replace("İ", "i").lower()  # noqa: E731
+    tok = r"[A-Za-zçğıöşüÇĞİÖŞÜâîû]+"
+    say = collections.Counter()
+    for s in sorular:
+        for t in [s.get("metin") or s.get("kok") or "", s.get("aciklama") or ""] + list((s.get("secenekler") or {}).values()):
+            say.update(kucuk(w) for w in re.findall(tok, t))
+    sik = [w for w, c in say.items() if c >= 4 and len(w) >= 4]
+    for i, s in enumerate(sorular):
+        anahtar = s.get("eski_id") or s.get("numara") or s.get("no") or i
+        for t in [s.get("metin") or s.get("kok") or ""] + list((s.get("secenekler") or {}).values()):
+            for w in re.findall(tok, t):
+                lw = kucuk(w)
+                if len(lw) < 4 or say[lw] > 1:
+                    continue
+                for v in sik:
+                    if len(v) == len(lw):
+                        fark = [(a, b) for a, b in zip(lw, v) if a != b]
+                        if 0 < len(fark) <= 2 and all(any(a in k and b in k for k in kar) for a, b in fark):
+                            sayac["harf_karisikligi"] += 1
+                            rapor.append({"soru": anahtar, "alan": "metin", "tur": "harf_karisikligi", "parca": f"{w} → {v}?"})
+                            break
     cikti = os.path.splitext(girdi)[0] + "_metin_denetim.json"
     json.dump(rapor, open(cikti, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(dict(sayac), "→", cikti)
