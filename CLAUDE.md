@@ -223,7 +223,6 @@ Raporlarken:
   Metin OCR'dan (taranmış kitap): küçük yazım hataları olabilir, kitaptaki görüntü açıklamada var.
   Konular otomatik (TTS'ten en yakın komşu) + düşük güvenliler elle; kullanıcı yanlış etiket görürse düzelt.
   Akış: `scripts/ocr/README.md` "Soru kitabı" bölümü. Set adları `TTS Mikrobiyoloji · NN Bölüm adı`; ders `Mikrobiyoloji`, kaynak `Tüm TUS Soruları`.
-  Yedek tablo `public.aktarim_bekleyen` (RLS açık, yetki yok); silinebilir ama zararı yok.
 - **Düzen:** Panel = 11 ders kartı + tüm dersler için genel deneme (rastgele / öncelikli konular /
   yanlışlarım). `/ders/<Ders>` = o dersin istatistikleri, derse özel denemeler, kaynaklar (her kaynak
   ayrı katlanır liste, bölüm bölüm ilerleme) ve konu listesi (konu konu deneme). Setin yeri
@@ -280,7 +279,10 @@ Raporlarken:
   `GORSEL_YUKSEK=1 aciklama_blok.py` ile tam çözünürlük + tam gri ton WebP q88 (~200 KB/parça; JSON'daki w/h
   ekran boyutu için eski ölçekte kalır). TTS + Meditus ≈ 650 MB, B2 ücretsiz 10 GB. B2 dolarsa Cloudflare R2
   (S3 uyumlu, 10 GB ücretsiz, çıkış ücretsiz) `src/lib/b2.ts` yanına ikinci depo olarak eklenebilir: yol
-  önekine göre depo seçimi (ör. `r2:` önekli yollar R2'den imzalanır). Supabase `aciklamalar` deposundaki eski görüntüler silindi (21.11.2026, 1324 dosya; tüm
+  önekine göre depo seçimi (ör. `r2:` önekli yollar R2'den imzalanır). **B2 aynı adla yüklenen dosyanın eski sürümünü
+  saklar**: yeniden yüklemeden sonra `POST /api/b2-bakim {"islem":"eski_surumler"}` çalıştır (özet: `GET /api/b2-bakim`,
+  referanssız silme: `{"islem":"sil","adlar":[...]}`; istek sınırı 429 verirse bir süre sonra tekrar). 21.11.2026:
+  3347 dosya, 788 MB (333 MB kaynak PDF). Supabase `aciklamalar` deposundaki eski görüntüler silindi (21.11.2026, 1324 dosya; tüm
   yollar B2'de doğrulandı). Eski not: Yeni varsayılan
   4 gri ton kayıpsız: kitap başına ~40 MB. Metin katmanlı PDF'lerde metin zaten doğru: görüntüyü
   yalnızca tablo/şekil içeren açıklamalara üret. Böylece 33 kitap 1 GB'a sığar. Sığmazsa seçenekler:
