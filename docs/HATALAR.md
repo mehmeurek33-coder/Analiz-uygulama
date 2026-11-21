@@ -68,6 +68,7 @@ maddeler o kontrol listesinin gerekçesidir. Yeni hata bulunca buraya ekle.
 | E2 | `update ... from (values ...)` aynı soruya iki satır gelince yalnız birini uyguladı | Değerler soru başına birleştirildi (`jsonb` birleştirme) | Toplu güncellemede kimlik başına tek satır |
 | E3 | Supabase'te kullanılmayan eski görseller (93 MB) ve aktarım tablosu | Silindi (önce tüm yolların B2'de olduğu doğrulandı) | Silmeden önce referans kontrolü |
 | E4 | Görseller 4 gri tona indirilmişti, okunurluk düşüktü | Tam çözünürlük + tam gri WebP q88 (`GORSEL_YUKSEK=1`) | Kullanıcı isteği: kalite düşürülmez |
+| E6 | "MHC |" (Meditus 02-039 A) tahminle "MHC II" yapıldı; görüntüde "MHC I" idi (aynı şık iki kez çıktı) | Görüntüyle düzeltildi | Romen rakamını tahminle yazma, her zaman görüntüye bak; düzeltmeden sonra "aynı iki şık" denetimi |
 | E5 | Toplu SQL düzeltmesinde `regexp_replace(..., '\s*\S*\s*(Bu soru…)')` sızıntıyla birlikte şıkkın son kelimesini de sildi | Değerler elle geri yazıldı | Silme deseninde önceki kelimeyi yakalayan `\S*` kullanma; sonucu `returning` ile hemen oku |
 
 ## F. Denetim aracı

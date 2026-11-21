@@ -273,6 +273,8 @@ def metin_sorunlari(kok, siklar):
         for k, v in siklar.items():
             if not _ROMEN_SIK.match(v.strip()):
                 out.append((k, "romen_sik", v))
+    if len({v.strip() for v in vs}) < len(vs):
+        out.append(("siklar", "ayni_iki_sik", " | ".join(vs)))
     if len(vs) != 5 or any(len(v.strip()) < 1 for v in vs):
         out.append(("siklar", "sik_sayisi_ya_da_bos", len(vs)))
     return out
