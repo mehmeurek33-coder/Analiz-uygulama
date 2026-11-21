@@ -72,7 +72,8 @@ açıklamanın büyük harfli başlığı yapışır ("Oseltamivir KIRIM-KONGO�
 
 - `sorular.vaka_metni`: birden çok sorunun paylaştığı vaka (TUSDATA vaka soruları). Aynı vakanın HER sorusuna aynı
   metni yaz; çözüm ekranı art arda gelen aynı vakayı ilkinde açık, sonrakilerde "Aynı vaka ▼ göster" diye kapalı
-  gösterir. Karışık denemelerde (rastgele/öncelikli) soru vakasıyla birlikte gelir.
+  gösterir. Karışık denemelerde (rastgele/öncelikli) soru vakasıyla birlikte gelir; aynı vakadan seçilen
+  sorular art arda dizilir (`deneme/route.ts` `vakaGrupla`).
 - `sorular.soru_gorsel`: kökteki şekil/grafi/tablo görüntüsünün B2 yolu (`<kaynak-klasör>/soru-<id>.webp`,
   `b2_yukle.py`). Yüksek kalite, kırpıntı yalnızca şekil kadar. Görsel varken `[Şekil: ...]` tarifi gereksiz.
 - `soru-ekle.ts` her iki alanı da alır.

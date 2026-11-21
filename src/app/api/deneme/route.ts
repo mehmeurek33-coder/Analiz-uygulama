@@ -142,6 +142,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ hata: "Seçilen kriterlere uygun soru bulunamadı." }, { status: 400 });
   }
 
+  // Karışık denemede aynı vakayı paylaşan seçilmiş sorular art arda gelsin (vaka bir kez açık gösterilir)
+  if (mod !== "tumu") soruIdleri = await vakaGrupla(supabase, user.id, soruIdleri);
+
   const { data: deneme, error: denemeHatasi } = await supabase
     .from("denemeler")
     .insert({
@@ -234,6 +237,35 @@ async function konudanSec(supabase: Istemci, userId: string, ders: string, konu:
     ...bilinen.sort((a, b) => a.t - b.t).map((x) => x.id),
     ...bekleyen.sort((a, b) => a.t - b.t).map((x) => x.id),
   ].slice(0, adet);
+}
+
+/** Aynı vaka metnini paylaşan soruları ilk geçtikleri yerde, kitap sırasıyla bir araya toplar. */
+async function vakaGrupla(supabase: Istemci, userId: string, idler: string[]) {
+  const { data } = await supabase
+    .from("sorular")
+    .select("id, set_id, sira, vaka_metni")
+    .eq("user_id", userId)
+    .in("id", idler)
+    .not("vaka_metni", "is", null);
+  if (!data?.length) return idler;
+  const anahtar = new Map(data.map((s) => [s.id as string, `${s.set_id}|${s.vaka_metni}`]));
+  const sira = new Map(data.map((s) => [s.id as string, Number(s.sira) || 0]));
+  const gruplar = new Map<string, string[]>();
+  for (const id of idler) {
+    const a = anahtar.get(id);
+    if (a) gruplar.set(a, [...(gruplar.get(a) ?? []), id]);
+  }
+  const sonuc: string[] = [];
+  const yazildi = new Set<string>();
+  for (const id of idler) {
+    const a = anahtar.get(id);
+    if (!a) sonuc.push(id);
+    else if (!yazildi.has(a)) {
+      yazildi.add(a);
+      sonuc.push(...(gruplar.get(a) ?? []).sort((x, y) => (sira.get(x) ?? 0) - (sira.get(y) ?? 0)));
+    }
+  }
+  return sonuc;
 }
 
 /** Listeyi kaynaklar arasında sırayla dağıtır (A, B, A, B, ...); her kaynağın kendi sırası korunur. */
