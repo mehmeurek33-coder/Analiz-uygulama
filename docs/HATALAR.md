@@ -40,6 +40,7 @@ maddeler o kontrol listesinin gerekçesidir. Yeni hata bulunca buraya ekle.
 | B21 | **"%" → "96/95/90/92"** ("eozinofil oranı 9625" = %25, "966.5 NaCl" = %6.5, "Duyarlılık-9548" = Duyarlılık=%48), **"°C" → "“C" / "*C" / "9C"**, "+4 °C" → "*4", "µ/µm" → "u", "mm³" → "mm3/mm9/mm“", "BOS" → "8OS", "CO₂" → "COJ" | OCR | 62 + 30 soru; genel desenlerle ve görüntüyle. `pdf_denetim.py metin` bunları "isaret_(+/-)"/"ocr_artigi" altında yakalar |
 | B22 | Meditus konu etiketi yanlış (12): "hangi virüsün aşısı yoktur" → Sterilizasyon; Shigella/E. coli → "Oksidaz Pozitif Kıvrık"; Listeria/Klamidya özellik soruları genel başlıkta | kNN'in genel bölüm sorularında organizmaya özgü soruyu yakalayamaması | İkinci görüş: doğru şıktaki cins adının TTS'teki konu dağılımı (≥%80) + setin bölümü; uyuşmayanlar elle karar verildi |
 | B23 | Açıklama metinlerinde aynı "%"/°C bozulması (179 açıklama) | B21 ile aynı | Aynı desen açıklama ve blok metinlerine uygulandı (görüntü zaten doğruydu) |
+| B24 | Açıklama metinlerinde harf karışıklığı ("Jenfoid", "Sirongyloides", "Ftukonazol", "azireonam") — 103 açıklama, 119 kelime | B18 ile aynı | Aynı yöntem açıklama + blok metinlerine; ö/o, ü/u ve r/n farkları (yazım varyantı ya da çekim eki olabilir) bilerek dışarıda bırakıldı |
 | B17 | Paralel iki sütunlu şıklarda sütun başlığı kayboldu ("Babesia microti Trichuris trichiura") | Satır OCR'ı başlık satırını köke yapıştırır | Şıklar "X — Y" biçimine getirildi, başlık kökün sonuna "(Protozoon — Helmint)" olarak eklendi |
 
 ## C. Cevap anahtarı
