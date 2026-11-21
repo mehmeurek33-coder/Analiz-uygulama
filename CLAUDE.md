@@ -36,8 +36,10 @@ atar. Hiçbir soru eklemeden önce:
    (`pdf_denetim.py yapi <D>`): bölüm içi numara boşlukları (eksik sayfaya denk gelenler ayrı), cevapsız,
    aynı numaralı, **açıklaması eksik sayfayı aşan** sorular (cevap/açıklama başka soruya ait olabilir — görüntüyle
    bak). Kitaptaki toplam soru sayısını (kapak "1000 soru", içindekiler) bulunanla karşılaştır.
-4. Şık ve kök denetimi (`meditus_soru.py` sorunlu listesi) + görüntüyle elle okuma (`soru_kirp.py`): Romen
-   rakamlı öncüller ve şıklar, iki sütunlu eşleştirme şıkları, alt satıra taşan son şık — bunlar OCR'da HER ZAMAN bozulur.
+4. Şık ve kök denetimi: **`pdf_denetim.py metin <girdi.json>`** (bozuk +/- işareti, OCR artığı, bitişik kelime,
+   kutu/açıklama sızıntısı, aşırı uzun son şık, kesik kök, Romen şıkları) + `meditus_soru.py` sorunlu listesi +
+   görüntüyle elle okuma (`soru_kirp.py`): Romen rakamlı öncüller ve şıklar, iki sütunlu eşleştirme şıkları, alt
+   satıra taşan son şık, **seroloji (+)/(-) işaretleri** — bunlar OCR'da HER ZAMAN bozulur. Rapor boşalmadan ekleme.
 5. Anahtar denetimi: bozuk okunan cevap harfleri (G/c→C, 8→B, 0/O→D, €→E) görüntüyle; açıklamada "Soruda X
    tanımlanmaktadır" ↔ anahtar uyumu; `anahtar_denetim.py`. Kitap anahtarı esastır, kendin çözme.
 6. Ekledikten sonra veritabanında: set başına soru sayısı, anahtarsız 0, şık 5, konu müfredatta.
@@ -46,7 +48,10 @@ atar. Hiçbir soru eklemeden önce:
 açıklama sonraki soruya taşar; "şöyle de sorulabilirdi" kutusunun kendi cevabı; açıklama içindeki numaralı liste
 soru başı sanılır; altı çizili kelime "(" ya da tek "o" olur; tarama kenarı kesikse soru numarasının ilk hanesi
 kaybolur ("8." = 18); "A)" → "AJ"; bölüm açılış sayfasında sütun kırpması farklı; kök kesik kalır
-("... aşağıdakilerden i (Sonbahar 2001)") — kökün "?" ya da sınav etiketiyle bittiğini kontrol et.
+("... aşağıdakilerden i (Sonbahar 2001)") — kökün "?" ya da sınav etiketiyle bittiğini kontrol et;
+**"(+)" → (4) (*) (1) (t), "(-)" → (9) (5) (<)** (hepatit serolojisinde anlam değişir, görüntüyle yaz); son şıkka
+açıklamanın büyük harfli başlığı yapışır ("Oseltamivir KIRIM-KONGO…"); paralel sütunlu şıklarda başlık kaybolur
+("Babesia microti Trichuris trichiura" → "X — Y"); "H,N," = H₁N₁; "|" = I.
 
 ## Vaka soruları ve kök görseli (göç 13)
 

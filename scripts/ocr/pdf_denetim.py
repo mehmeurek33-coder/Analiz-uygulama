@@ -4,6 +4,7 @@ PDF GIRIS DENETIMI — her yeni PDF'te, aktarimdan ONCE calistir (CLAUDE.md "PDF
 
   python3 -I pdf_denetim.py sayfa <pdf> <cikti_dizini>      # 1. asama: sayfa duzeyi
   python3 -I pdf_denetim.py yapi  <D> [<bolumler.json>]     # 2. asama: yapi.json (soru duzeyi)
+  python3 -I pdf_denetim.py metin <girdi.json>              # 3. asama: kok/sik metni (soru-ekle JSON'u ya da yapi.json)
 
 1. asama (OCR'dan once, ~1 dk / 100 sayfa):
   - pdfinfo: sayfa sayisi, olculer (farkli boyut / yatay sayfa = ters taranmis olabilir), uretici
@@ -20,6 +21,9 @@ PDF GIRIS DENETIMI — her yeni PDF'te, aktarimdan ONCE calistir (CLAUDE.md "PDF
   - aciklamasi eksik sayfa sinirini asan sorular (yanlis aciklama/cevap alma riski!)
   - cevapsiz, ayni numarali, sik sayisi 5 olmayan, cevap harfi sik disinda olan sorular
   Cikti: <D>/yapi_denetim.json + ozet. "riskli" listesindekileri goruntuyle kontrol etmeden ekleme.
+
+3. asama (JSON hazir, eklemeden once): bozuk (+)/(-), OCR artiklari, bitisik kelimeler, kutu/aciklama sizintisi,
+  asiri uzun sik, kesik kok, bozuk Romen siklari. Cikti: <girdi>_metin_denetim.json.
 """
 import collections
 import json
@@ -236,8 +240,63 @@ def asama_yapi(D, bolumler=None):
     print(json.dumps({k: (len(v), v[:6]) for k, v in sorun.items()}, ensure_ascii=False, indent=1))
 
 
+# --- metin denetimi: aktarımdan önce kök/şık metnindeki bilinen OCR bozulmaları ---------------------------
+# Hepsi gerçek veride görüldü (docs/HATALAR.md B13-B16). Rapor eder; düzeltme görüntüyle yapılır.
+_ISARET_BOZUK = re.compile(r"\((?:4|\*|1|t|9|5|<|#|#9)\)")  # (+) → (4)(*)(1)(t), (-) → (9)(5)(<)
+_ARTIK = re.compile(r"(©|€|£|\s\|\s|^\|\s|\bOo\b|\boo\b|\bo[A-ZÇĞİÖŞÜ]|\(o\s|H,N,|\bIl\b|\b111\b|\bLU\b)")
+_ROMEN_SIK = re.compile(r"^(Yalnız\s+)?(I{1,3}|IV|VI{0,3})(\s*(,|ve)\s*(I{1,3}|IV|VI{0,3}))*\.?$")
+_SON_OK = re.compile(r"(\?|\)|:|\.)\s*$")
+
+
+def metin_sorunlari(kok, siklar):
+    """Bir sorunun kök ve şıklarındaki şüpheli yerler: [(alan, tür, parça), ...]"""
+    out = []
+    alanlar = [("kok", kok or "")] + [(k, v or "") for k, v in (siklar or {}).items()]
+    for alan, t in alanlar:
+        for m in _ISARET_BOZUK.finditer(t):
+            out.append((alan, "isaret_(+/-)", t[max(0, m.start() - 25):m.end()]))
+        for m in _ARTIK.finditer(t):
+            out.append((alan, "ocr_artigi", t[max(0, m.start() - 20):m.end() + 15]))
+        for w in re.findall(r"\S+", t):
+            w2 = re.sub(r"[^\wçğıöşüÇĞİÖŞÜ]", "", w)
+            if len(w2) >= 22 and not re.search(r"[A-Z]{2}|\d|-", w):
+                out.append((alan, "bitisik_kelime", w))
+        if re.search(r"sorulmaya uygun|Doğru cevap|şöyle de sorulabilir", t, re.I):
+            out.append((alan, "kutu_sizmasi", t[-60:]))
+        if alan != "kok" and len(t) > 160:
+            out.append((alan, "uzun_sik_aciklama_sizmis_olabilir", t[:60] + "…"))
+    if not _SON_OK.search(kok or "") or re.search(r"\s[a-zçğıöşü]\s*\(", kok or ""):
+        out.append(("kok", "kok_kesik_olabilir", (kok or "")[-60:]))
+    vs = list((siklar or {}).values())
+    if sum(bool(_ROMEN_SIK.match(v.strip())) for v in vs) >= 2:
+        for k, v in siklar.items():
+            if not _ROMEN_SIK.match(v.strip()):
+                out.append((k, "romen_sik", v))
+    if len(vs) != 5 or any(len(v.strip()) < 1 for v in vs):
+        out.append(("siklar", "sik_sayisi_ya_da_bos", len(vs)))
+    return out
+
+
+def asama_metin(girdi):
+    """girdi: soru-ekle JSON'u ({sorular:[{metin, secenekler}]}) ya da yapi.json ([{kok, secenekler}])."""
+    veri = json.load(open(girdi, encoding="utf-8"))
+    sorular = veri["sorular"] if isinstance(veri, dict) else veri
+    sayac = collections.Counter()
+    rapor = []
+    for i, s in enumerate(sorular):
+        anahtar = s.get("eski_id") or s.get("numara") or s.get("no") or i
+        for alan, tur, parca in metin_sorunlari(s.get("metin") or s.get("kok"), s.get("secenekler")):
+            sayac[tur] += 1
+            rapor.append({"soru": anahtar, "alan": alan, "tur": tur, "parca": parca})
+    cikti = os.path.splitext(girdi)[0] + "_metin_denetim.json"
+    json.dump(rapor, open(cikti, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    print(dict(sayac), "→", cikti)
+
+
 if __name__ == "__main__":
     if sys.argv[1] == "sayfa":
         asama_sayfa(sys.argv[2], sys.argv[3])
     elif sys.argv[1] == "yapi":
         asama_yapi(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None)
+    elif sys.argv[1] == "metin":
+        asama_metin(sys.argv[2])

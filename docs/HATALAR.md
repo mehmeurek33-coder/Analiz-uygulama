@@ -30,6 +30,11 @@ maddeler o kontrol listesinin gerekçesidir. Yeni hata bulunca buraya ekle.
 | B10 | Eski TTS aktarımında ~230 kök kesik ("... aşağıdakilerden i (Sonbahar 2001)") | İlk OCR'da sağ kenar kırpılmıştı | 36. baskı OCR'ından düzeltildi; kök "?" veya sınav etiketiyle bitmeli kontrolü |
 | B11 | TTS'te 58 sorunun son şıkkına açıklamanın ilk cümlesi karıştı | İlk aktarımda şık bloğunun sonu yanlış | 36. baskı şık metniyle kesildi; 49 şıkta karakter bozulması ("Tip |", "!L-4", "Guillain-Barr&") düzeltildi |
 | B12 | Eşleştirme kaçırdı: 66 eski soru "bulunamadı" | Bölüm ilk soruları, şekilli kökler, bozuk eski kökler | Komşu sorular arasında konumla arandı; 49'u bulundu |
+| B13 | **(+)/(-) işaretleri bozuk** (hepatit seroloji şıkları, "gram (*)", "katalaz (4)"): 41 kök/şık, 45 açıklama. Bir soruda "anti-HBc IgG (-)" → "(9)" okunmuştu: sorunun anlamı değişiyordu | Parantez içindeki +/- OCR'da (4) (*) (1) (t) ve (9) (5) (<) oluyor | Hepatit soruları (7) görüntüden tek tek yazıldı; kalanlar eşlemeyle, birkaçı görüntüyle örneklenerek doğrulandı. Açıklamada yalnız test adından sonra gelenler değişti (liste numaraları korunur) |
+| B14 | E şıkkına açıklamanın başlığı/ilk cümlesi karıştı (61 soru daha: "Oseltamivir KIRIM-KONGO HEMORAJİK ATEŞİ * Etken:", "Lamivudin Lamivudin: Bir nükleozid…") | İlk aktarımda son şıkkın bitişi bulunamadı (B11'in kalanı) | 36. baskı şıklarıyla kıyaslanıp (şık = baş kısmı) kesildi; eşleşmeyenlerde şık uzunluğu diğerlerinin ~2 katını aşınca elle bakıldı. Çok satırlı gerçek şıklar (yeni baskı OCR'ında kesik olanlar) korundu |
+| B15 | Bitişik kelimeler ("Diyaresiolanvedışkiyaymasındaboltökositgörülen", "memelihücrelerininen:?") ve ortası düşmüş kökler ("savunmasından ka sahiptir?") | Eski baskı OCR'ı | 40'a yakın kök sözlük tabanlı bölme + yeni baskı/görüntüyle düzeltildi |
+| B16 | Meditus'ta "MHC sınıf |", "©", "Oo", "oX" artıkları, Romen şıkları ("! veli", "IN ve IV"), "H,N," (H₁N₁), "JG virüs" (JC) | OCR | Görüntüyle düzeltildi (71 soru); kitabın kendi yazım hataları ("II ve IIII", "ilişkilimoleküler") yalnızca boşluk düzeltmesiyle korundu |
+| B17 | Paralel iki sütunlu şıklarda sütun başlığı kayboldu ("Babesia microti Trichuris trichiura") | Satır OCR'ı başlık satırını köke yapıştırır | Şıklar "X — Y" biçimine getirildi, başlık kökün sonuna "(Protozoon — Helmint)" olarak eklendi |
 
 ## C. Cevap anahtarı
 
@@ -57,3 +62,14 @@ maddeler o kontrol listesinin gerekçesidir. Yeni hata bulunca buraya ekle.
 | E2 | `update ... from (values ...)` aynı soruya iki satır gelince yalnız birini uyguladı | Değerler soru başına birleştirildi (`jsonb` birleştirme) | Toplu güncellemede kimlik başına tek satır |
 | E3 | Supabase'te kullanılmayan eski görseller (93 MB) ve aktarım tablosu | Silindi (önce tüm yolların B2'de olduğu doğrulandı) | Silmeden önce referans kontrolü |
 | E4 | Görseller 4 gri tona indirilmişti, okunurluk düşüktü | Tam çözünürlük + tam gri WebP q88 (`GORSEL_YUKSEK=1`) | Kullanıcı isteği: kalite düşürülmez |
+| E5 | Toplu SQL düzeltmesinde `regexp_replace(..., '\s*\S*\s*(Bu soru…)')` sızıntıyla birlikte şıkkın son kelimesini de sildi | Değerler elle geri yazıldı | Silme deseninde önceki kelimeyi yakalayan `\S*` kullanma; sonucu `returning` ile hemen oku |
+
+## F. Denetim aracı
+
+`scripts/ocr/pdf_denetim.py metin <girdi.json>` (soru-ekle JSON'u ya da `yapi.json`): B13-B17'nin hepsini
+aktarımdan önce raporlar (bozuk +/- işareti, OCR artığı, bitişik kelime, varyant kutusu sızıntısı, aşırı uzun şık,
+kesik kök, bozuk Romen şıkkı). 21.11.2026'da veritabanının tamamında çalıştırıldı; kalan bulgular kitabın kendi
+yazımı (ör. "II ve IIII") ya da gerçek uzun şıklardır.
+
+Veri düzeltmelerinin önceki hâlleri scratchpad'de `deney/duzeltme_tur3b.json`, `tur3c`, `tur3d`,
+`aciklama_isaret_once.json`, `sik_E_sizinti_once.json` (geri almak gerekirse).
