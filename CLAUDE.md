@@ -20,6 +20,34 @@ ve `ANTHROPIC_API_KEY` yoksa kapalıdır.
   olabileceğini söyle.
 - Şema: `supabase/schema.sql`. Analiz görünümü: `v_konu_performans`.
 
+## PDF geldiğinde: önce denetim (her seferinde, aktarımdan ÖNCE)
+
+Kullanıcı soru kitaplarını Backblaze'e yükler (`GET /api/kaynak` listesi, `?ad=` imzalı bağlantı) ya da sohbete
+atar. Hiçbir soru eklemeden önce:
+
+1. **Sayfa denetimi** (`scripts/ocr/pdf_denetim.py sayfa <pdf> <dizin>`, ~1,5 dk / 100 sayfa): kaynak ve ders
+   tahmini (kapak + başlıklar), metin katmanı, her sayfanın kitap sayfa numarası (üst VE alt; "—— 26 ——" tarzı
+   dahil) → **eksik sayfa / çift tarama / boş / ters sayfa**. Kullanıcıya hemen yaz: "X kitabı, N sayfa;
+   eksik: s. 61-62, 77-78". Eksik varsa o sayfaların fotoğrafını iste; beklemeden devam edersen o aralığa düşen
+   soruları ve açıklamaları işaretle. (TTS 36. baskıda 3 aralık eksik taranmıştı, sonradan anlaşıldı.)
+2. **Düzen ölçümü**: bir sayfa görüntüsüne bak; sütun arası (`KOLON_ARALIK`), dış sekme/kenar (`KENAR_BEYAZ`),
+   başlık şeridi. Kırpılan sütunların kenarında mürekkep varsa (metin kesilmiş) ayarı düzelt, yeniden al.
+3. OCR → yapı (`yeni_baski.py` yeni baskı / `meditus_yapi.py` yeni kitap) → **soru denetimi**
+   (`pdf_denetim.py yapi <D>`): bölüm içi numara boşlukları (eksik sayfaya denk gelenler ayrı), cevapsız,
+   aynı numaralı, **açıklaması eksik sayfayı aşan** sorular (cevap/açıklama başka soruya ait olabilir — görüntüyle
+   bak). Kitaptaki toplam soru sayısını (kapak "1000 soru", içindekiler) bulunanla karşılaştır.
+4. Şık ve kök denetimi (`meditus_soru.py` sorunlu listesi) + görüntüyle elle okuma (`soru_kirp.py`): Romen
+   rakamlı öncüller ve şıklar, iki sütunlu eşleştirme şıkları, alt satıra taşan son şık — bunlar OCR'da HER ZAMAN bozulur.
+5. Anahtar denetimi: bozuk okunan cevap harfleri (G/c→C, 8→B, 0/O→D, €→E) görüntüyle; açıklamada "Soruda X
+   tanımlanmaktadır" ↔ anahtar uyumu; `anahtar_denetim.py`. Kitap anahtarı esastır, kendin çözme.
+6. Ekledikten sonra veritabanında: set başına soru sayısı, anahtarsız 0, şık 5, konu müfredatta.
+
+**Bilinen OCR tuzakları** (ayrıntı `docs/HATALAR.md`): "Doğru cevap" satırının bozulması (Joğru/ığru/'oğru) →
+açıklama sonraki soruya taşar; "şöyle de sorulabilirdi" kutusunun kendi cevabı; açıklama içindeki numaralı liste
+soru başı sanılır; altı çizili kelime "(" ya da tek "o" olur; tarama kenarı kesikse soru numarasının ilk hanesi
+kaybolur ("8." = 18); "A)" → "AJ"; bölüm açılış sayfasında sütun kırpması farklı; kök kesik kalır
+("... aşağıdakilerden i (Sonbahar 2001)") — kökün "?" ya da sınav etiketiyle bittiğini kontrol et.
+
 ## PDF → soru aktarma
 
 Kullanıcının hesabı yoksa (aşağıdaki sorgu boş dönerse) önce uygulamada ilk kurulumu yapmasını
