@@ -100,7 +100,8 @@ def kok_metni(y):
     satir = [y["kok"].split(" ")[0] and None]
     ilk = yb.satirlar[y["bas"]][4]
     m = yb.BAS.match(ilk) or re.match(r"^.*?\d{1,3}\s?[.,]\s*(.*)$", ilk)
-    satir = [m.group(m.lastindex) if m else ilk] + [yb.satirlar[j][4] for j in range(y["bas"] + 1, y["sik_ilk"])]
+    son = y["sik_ilk"] if y["sik_ilk"] is not None else y.get("kok_son", y["bas"] + 1)
+    satir = [m.group(m.lastindex) if m else ilk] + [yb.satirlar[j][4] for j in range(y["bas"] + 1, son)]
     satir = [t for t in satir if t.strip()]
     madde = [bool(ROM.match(t)) for t in satir]
     if sum(madde) < 2 or not madde[0]:

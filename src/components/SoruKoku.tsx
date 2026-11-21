@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Gorsel from "@/components/Gorsel";
 
 /**
  * Soru kökü: (varsa) ortak vaka metni, soru metni ve kökteki şekil/grafi.
@@ -37,13 +38,12 @@ export default function SoruKoku({
       <p className="leading-relaxed whitespace-pre-wrap">{metin}</p>
       {soruGorsel && !gorselHata && (
         <div className="overflow-hidden rounded-xl border border-cizgi bg-white p-1.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Gorsel
             src={soruGorsel}
             alt="Sorudaki şekil"
             loading="lazy"
             className="mx-auto block h-auto max-w-full"
-            onError={() => setGorselHata(true)}
+            onBasarisiz={() => setGorselHata(true)}
           />
         </div>
       )}

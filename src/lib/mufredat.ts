@@ -236,27 +236,130 @@ export const MUFREDAT: Ders[] = [
   {
     ders: "Farmakoloji",
     grup: "Temel Bilimler",
-    konular: [
-      "Farmakokinetik",
-      "Farmakodinamik",
-      "Otonom Sinir Sistemi İlaçları",
-      "Kardiyovasküler İlaçlar",
-      "Diüretikler",
-      "Santral Sinir Sistemi İlaçları",
-      "Anestezik İlaçlar",
-      "Analjezikler ve NSAİİ",
-      "Otakoidler",
-      "Antibiyotikler",
-      "Antiviral İlaçlar",
-      "Antifungal ve Antiparaziter İlaçlar",
-      "Antineoplastik İlaçlar",
-      "Endokrin Sistem İlaçları",
-      "Solunum Sistemi İlaçları",
-      "Gastrointestinal Sistem İlaçları",
-      "Kan ve Hemostaz İlaçları",
-      "İmmünsupresif İlaçlar",
-      "Toksikoloji",
+    // Başlıklar: TTS Farmakoloji (35. baskı) içindekileri. Şampiyonların Notu içindekileri gelince değiştir.
+    kaynak: "Tüm TUS Soruları (içindekiler)",
+    bolumler: [
+      {
+        baslik: "Genel Farmakoloji",
+        konular: [
+          "Farmakolojiye Giriş - Absorbsiyon - Biyoyararlanım",
+          "Dağılım",
+          "Metabolizma ve Eliminasyon, İlaç Uygulama Şekilleri",
+          "Farmakodinamik Faz",
+          "Efektör - Reseptör İlişkileri (Antagonizma)",
+          "Terminoloji - Agonistler Arası Etkileşim - Test Fazları - Gebelik Kategorileri",
+        ],
+      },
+      {
+        baslik: "Otonom Sinir Sistemi",
+        konular: [
+          "Otonom Sinir Sistemine Giriş",
+          "Parasempatomimetikler",
+          "Parasempatolitikler",
+          "Sempatomimetikler",
+          "Sempatolitikler",
+          "Ergot Alkaloidleri, Ganglion Stimülanları, Blokörleri ve Glokom Tedavisi",
+        ],
+      },
+      {
+        baslik: "Kardiyovasküler Sistem Farmakolojisi",
+        konular: [
+          "Kalp Yetmezliği - Dijitaller",
+          "Diüretikler",
+          "Beta Blokörler",
+          "Santral Etkili Sempatolitikler ve Kalsiyum Kanal Blokörleri",
+          "Renin - Anjiotensin - Aldosteron",
+          "Direkt Etkili Vazodilatatör, Hipertansif Kriz Tedavisinde Kullanılan İlaçlar ve Periferik Etkili Vazodilatatörler",
+          "Antiaritmikler ve Antianjinal İlaçlar",
+          "Hipolipidemik İlaçlar",
+          "Antikoagülan İlaçlar",
+          "Antiagreganlar, Fibrin Modülatörleri ve Hematopoetik Sistem Üzerine Etkili İlaçlar",
+        ],
+      },
+      {
+        baslik: "Endokrin Sistem Farmakolojisi",
+        konular: [
+          "Hipotalamik ve Hipofizer Hormonlar",
+          "Tiroid Bezi İlaçları",
+          "Adrenal Korteks ve Gonadal Hormonlar",
+          "Diabetes Mellitus",
+        ],
+      },
+      {
+        baslik: "Santral Sinir Sistemi Farmakolojisi",
+        konular: [
+          "Santral Sinir Sistemine Giriş",
+          "Hipnosedatif İlaçlar",
+          "Alkol",
+          "Kas Gevşeticiler",
+          "Antipsikotik İlaçlar",
+          "Antidepresan ve Antimanik İlaçlar",
+          "Antiepileptik İlaçlar",
+          "Antiparkinson İlaçlar",
+          "Santral Sinir Sistemi Stimülanları",
+          "Genel Anestezikler",
+          "Lokal Anestezikler",
+          "Opioidler",
+        ],
+      },
+      {
+        baslik: "Otakoidler",
+        konular: [
+          "Histamin ve Serotonin",
+          "Diğer Otakoidler",
+          "Eikozanoidler",
+        ],
+      },
+      {
+        baslik: "Non-Steroidal Anti-İnflamatuvar İlaçlar",
+        konular: [
+          "NSAİİ - Romatoid Artrit Tedavisi - GUT Tedavisi",
+        ],
+      },
+      {
+        baslik: "Antimikrobiyal İlaçlar",
+        konular: [
+          "Antibiyotikler",
+          "Antiviral İlaçlar",
+          "Antifungal İlaçlar",
+          "Antiparaziter İlaçlar",
+        ],
+      },
+      {
+        baslik: "Antineoplastik İlaçlar",
+        konular: [
+          "Antineoplastik İlaçlar",
+        ],
+      },
+      {
+        baslik: "İmmünmodülatör İlaçlar ve Diğer Konular",
+        konular: [
+          "İmmünmodülatör İlaçlar",
+        ],
+      },
+      {
+        baslik: "Gastrointestinal Sistem Farmakolojisi",
+        konular: [
+          "Gastrointestinal Sistem Farmakolojisi",
+        ],
+      },
+      {
+        baslik: "Solunum Sistemi İlaçları",
+        konular: [
+          "Solunum Sistemi İlaçları",
+        ],
+      },
+      {
+        baslik: "Toksikoloji",
+        konular: [
+          "Toksikoloji",
+          "Vitaminler",
+        ],
+      },
     ],
+    get konular() {
+      return this.bolumler!.flatMap((b) => b.konular);
+    },
   },
   {
     ders: "Dahiliye",

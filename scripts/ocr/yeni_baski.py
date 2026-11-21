@@ -22,10 +22,13 @@ HARF = {"8": "B", "G": "C", "©": "C", "6": "C", "€": "E", "£": "E", "&": "E"
 # "Dogru cevap" OCR'da bozulabiliyor ("Joğru cevap", "ığru cevap", "Doğru cevab"): sonu yeterli
 # harfin yanina tek cop harf binebiliyor ("Cc", "GC" = C)
 CEVAP = re.compile(r"u\s*ce[vy]a[pb]\s*[:;.]?\s*([A-E8G©€0O6&£])[A-Ea-e]?\b", re.I)
+CEVAP_GEVSEK = re.compile(r"\b[DJ0O]?[oöa]?[gğq]?r[uü]\s*[cçe]\s*[ae]v?[ae]?[pb]\s*[:;.]?\s*\S|Do[gğ]ru\s*c\w*\s*[:;]", re.I)
 BAS = re.compile(r"^[\s\W_]{0,3}?(\d{1,3})\s?[.,]\s*(\S.{10,})$")
 SECENEK = re.compile(r"(?:^|\s)\(?[GOo0©6]?([A-E8G©€0O6&£])\s?[)\]}]")
 SIK_SATIRI = re.compile(r"^[\s\W]{0,3}[A-E8][)\]]")
-VARYANT = re.compile(r"(sorulab|ba[sş]ka bir ho[cç]a|[sş][oö]yle de sor)", re.I)
+# Varyant kutusu: "Bu soru, baska bir hoca tarafindan soyle de sorulabilirdi". Genis "sorulab" deseni
+# "... ile Ilgili Sorulabilecek Onemli Bilgiler" ozet kutularini da yakalayip gercek sorulari gizliyordu (HATALAR B26).
+VARYANT = re.compile(r"(ba[sş]ka\s*bir\s*h[oö0][cç]a|[sş][oö]yle\s*de\s*sor)", re.I)
 SINAV = re.compile(r"\((?:[^()]*?(?:İlkbahar|Ilkbahar|Sonbahar|Eylül|Nisan)[^()]*)\)", re.I)
 
 
@@ -63,7 +66,15 @@ i = 0
 while i < n:
     if VARYANT.search(satirlar[i][4]):
         j = i
-        while j < min(i + 40, n) and not CEVAP.search(satirlar[j][4]):
+        # kutunun kendi cevap satiri sik bozulur ("Doğru cavap: C", "Doğrü cevap: â"): gevsek desen;
+        # kacirilirsa isaret gercek aciklamaya ve asil cevaba kadar uzar (TTS Farmakoloji, HATALAR B37)
+        e_satiri = None
+        while j < min(i + 40, n) and not (CEVAP.search(satirlar[j][4]) or CEVAP_GEVSEK.search(satirlar[j][4])):
+            if j > i and re.search(r"(?:^|\s)\(?[E€£&]\s?[)\]}j]", satirlar[j][4]):
+                e_satiri = j
+            if e_satiri is not None and j - e_satiri >= 3:
+                j = e_satiri  # cevap satiri hic okunamadi (sekil/gurultu): kutu E) sikkinda biter
+                break
             j += 1
         if j < min(i + 40, n):
             for t in range(i, j + 1):

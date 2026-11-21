@@ -5,9 +5,14 @@ eski_id yerine anahtar). Bolumler PDF sayfa araligindan.
 
 Kullanim: python3 -I meditus_yapi.py <D> <bolumler.json>
   bolumler.json: [{"no": 1, "ad": "Temel Mikrobiyoloji", "bas": 5, "son": 48}, ...]   (PDF sayfasi)
+Ortam degiskenleri (TTS tarzi kitaplar icin):
+  ONEK=tf          anahtar oneki (varsayilan "med" -> "med-BB-NNN")
+  VARYANT=1        "soyle de sorulabilirdi" kutularini isaretli birak (TTS'te var, Meditus'ta yok)
+  (TTS'te bolum basligi sayfa ortasinda olabilir ve numara her bolumde 1'e donmeyebilir: tts_yapi.py kullan)
 Cikti: <D>/yapi.json + rapor (bolum basina soru, numara bosluklari, cevapsiz)
 """
 import json
+import os
 import re
 import sys
 
@@ -19,8 +24,10 @@ import yeni_baski as yb  # noqa: E402
 
 # Meditus'ta "soyle de sorulabilirdi" kutusu yok; "Sinavda sorulabilecek sorulardandir" gibi cumleler
 # varyant sanilmasin
-for _s in yb.satirlar:
-    _s[5] = False
+ONEK = os.environ.get("ONEK", "med")
+if os.environ.get("VARYANT") != "1":
+    for _s in yb.satirlar:
+        _s[5] = False
 # "A)" OCR'da "AJ", "Aj", "Aji" olabiliyor: sik satiri sayilsin (yoksa soru sonrakinin siklarini yutar)
 yb.SIK_SATIRI = re.compile(r"^[\s\W]{0,3}(?:[A-E8][)\]]|A[jJ])")
 yb.SECENEK = re.compile(r"(?:^|\s)\(?[GOo0©6]?(?:([A-E8G©€0O6&£])\s?[)\]}]|(A)[jJ])")
@@ -132,14 +139,14 @@ for b in BOL:
                and re.match(r"^[a-zçğıöşü(]", yb.satirlar[a["sik_son"] + 1][4].strip())
                and yb.satirlar[a["sik_son"] + 1][:2] == yb.satirlar[a["sik_son"]][:2]):
             a["sik_son"] += 1
-        anahtar = f"med-{b['no']:02d}-{a['no']:03d}"
+        anahtar = f"{ONEK}-{b['no']:02d}-{a['no']:03d}"
         if anahtar in SIK_SON:
             a["sik_son"] = SIK_SON[anahtar]
     for a in secilen:
         kok = " ".join([a["ilk"]] + [yb.satirlar[j][4] for j in range(a["bas"] + 1, a["sik_ilk"])
                                      if not yb.satirlar[j][5]])
         yapi.append({
-            "aday": a["bas"], "sayfa": a["sayfa"], "no": a["no"], "eski_id": f"med-{b['no']:02d}-{a['no']:03d}",
+            "aday": a["bas"], "sayfa": a["sayfa"], "no": a["no"], "eski_id": f"{ONEK}-{b['no']:02d}-{a['no']:03d}",
             "oran": None, "kok": kok,
             "secenekler": yb.secenekleri_ayir(a["sik_ilk"], a["sik_son"]) if a["sik_son"] is not None else {},
             "cevap": a["cevap"], "eski_cevap": None, "bas": a["bas"], "sik_ilk": a["sik_ilk"],

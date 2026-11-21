@@ -612,9 +612,16 @@ def tam_goruntu(parcalar, hedef):
     return t.width, t.height
 
 
+SONRAKI = {}
+OZET_KUTU = re.compile(r"[İI]lgili\s+(Sorulabilecek\s+)?[ÖO]nemli\s+Bilgiler|[İI]lgili\s+Sorulabilecek|Sorulabilecek\s*$|^[ÖO]nemli\s+Bilgiler", re.I)
+
+
 def main():
     yapi = json.load(open(f"{D}/yapi.json", encoding="utf-8"))
     rapor = {"soru": 0, "yazilan": 0, "aciklamasiz": 0, "gorselli": 0, "gorsel": 0}
+    sirali = sorted(yapi, key=lambda z: z["bas"])
+    for a, b in zip(sirali, sirali[1:]):
+        SONRAKI[a["eski_id"] or f"yeni-{a['aday']}"] = b["bas"]
     for y in yapi:
         anahtar = y["eski_id"] or f"yeni-{y['aday']}"
         if YALNIZ and anahtar not in YALNIZ:
@@ -632,7 +639,26 @@ def main():
             govde.pop(0)
         while govde and len(yb.satirlar[govde[0]][4]) < 25 and yb.satirlar[govde[0]][4][:1].islower():
             govde.pop(0)
-        parcalar = genislet(bolgeler(govde), y["sik_son"], y["bitis"])
+        bas_s, bit_s = y["sik_son"], y["bitis"]
+        if not govde and y["bitis"] == y["sik_son"] + 1 and SONRAKI.get(anahtar):
+            # bazi sayfalarda "Doğru cevap" siklarin hemen altinda, aciklama ondan sonra (TTS Farmakoloji)
+            # (varyant kutusu cevaptan sonra da gelebilir); bolum sonu ozet kutusu / yeni bolum basligi aciklama degil
+            govde = []
+            for i in range(y["bitis"] + 1, SONRAKI[anahtar]):
+                t = yb.satirlar[i][4].strip()
+                if yb.satirlar[i][5]:
+                    if govde:
+                        break
+                    continue
+                sonraki = yb.satirlar[i + 1][4].strip() if i + 1 < len(yb.satirlar) else ""
+                if OZET_KUTU.search(t) or (t.endswith(" ile") and OZET_KUTU.search(sonraki)) \
+                        or (len(t) > 5 and t.upper() == t and re.search(r"[A-ZÇĞİÖŞÜ]{4}", t)) \
+                        or yb.CEVAP.search(t):
+                    break
+                if len(t) > 3 and not re.fullmatch(r"\W*\d{1,3}\W*", t):
+                    govde.append(i)
+            bas_s, bit_s = y["bitis"], (govde[-1] + 1 if govde else y["bitis"])
+        parcalar = genislet(bolgeler(govde), bas_s, bit_s)
         if not parcalar:
             rapor["aciklamasiz"] += 1
             continue

@@ -247,6 +247,15 @@ _ARTIK = re.compile(r"(©|€|£|\s\|\s|^\|\s|\bOo\b|\boo\b|\bo[A-ZÇĞİÖŞÜ]
                     r"|(?<![\d.,])9[0256]\d{1,3}\b|\d\s?[“”*9]\s?C\b|/mm[9“”]|\b8OS\b|\bCOJ|\d\s?um\b|\b\d{1,2}u\b)")
 _ROMEN_SIK = re.compile(r"^(Yalnız\s+)?(I{1,3}|IV|VI{0,3})(\s*(,|ve)\s*(I{1,3}|IV|VI{0,3}))*\.?$")
 _SON_OK = re.compile(r"(\?|\)|:|\.)\s*$")
+# TTS Farmakoloji'de bulunanlar (HATALAR.md B32-B36): bitişik kalın kök, gri kutunun yuttuğu kelimeler,
+# "+" → "*", "β₁" → "$1"/"B,", alt simge kaybı ("H, reseptörü", "5-HT,"), DUS etiketinin silinmesi
+_BITISIK_KOK = re.compile(r"\w(?:aşağıdaki|yukarıdaki|hangisi)|(?:aşağıdakilerden|aşağıdaki|ilaçlardan|hangisi)"
+                          r"(?!dir|dır|nin|nın|ni|ne|nde|nden|yle|ler|lerin|leri|lerinin|nin|ydi)\w{3,}", re.I)
+_TEK_HARF = re.compile(r"(?<=[a-zçğıöşü]{3}) [a-zçğıöşü] (?=[a-zçğıöşü])")
+_SON_TEK = re.compile(r"\s(?:[a-zçğıöşü|!]|[A-HJ-UW-Z]{1,2}\s[A-Z])$")
+_SEMBOL = re.compile(r"\w[*#$]|[*#$]\w|\s\*\s|^\$|\s\$")
+_ALT_SIMGE = re.compile(r"(?<![\w'])(?:[HDMVBE]|CB|ET|AT|NK|PGE|5-?HT)[,;]\s?(?=reseptör|agonist|antagonist|blok|analo|ve\b|tip\b)"
+                        r"|(?<!\w)[aB],?-?\s?(?=adren)|(?<![\w-])5-?HT,")
 
 
 def metin_sorunlari(kok, siklar):
@@ -260,14 +269,28 @@ def metin_sorunlari(kok, siklar):
             out.append((alan, "ocr_artigi", t[max(0, m.start() - 20):m.end() + 15]))
         for w in re.findall(r"\S+", t):
             w2 = re.sub(r"[^\wçğıöşüÇĞİÖŞÜ]", "", w)
-            if len(w2) >= 22 and not re.search(r"[A-Z]{2}|\d|[-/]", w):
+            if len(w2) >= 22 and not re.search(r"[A-Z]{2}|\d|[-/+]", w):
                 out.append((alan, "bitisik_kelime", w))
         if re.search(r"sorulmaya uygun|Doğru cevap|şöyle de sorulabilir", t, re.I):
             out.append((alan, "kutu_sizmasi", t[-60:]))
+        for m in _BITISIK_KOK.finditer(t):
+            out.append((alan, "bitisik_kelime", t[max(0, m.start() - 15):m.end() + 15]))
+        for m in _TEK_HARF.finditer(t):
+            out.append((alan, "tek_harf_kalinti", t[max(0, m.start() - 25):m.end() + 20]))
+        if alan != "kok" and _SON_TEK.search(t.strip()):
+            out.append((alan, "sik_sonunda_kalinti", t[-40:]))
+        for m in _SEMBOL.finditer(t):
+            out.append((alan, "sembol_(+ * $)", t[max(0, m.start() - 20):m.end() + 15]))
+        for m in _ALT_SIMGE.finditer(t):
+            out.append((alan, "alt_simge_kaybi", t[max(0, m.start() - 20):m.end() + 15]))
+        if alan != "kok" and "?" in t:
+            out.append((alan, "sikta_soru_isareti", t[-50:]))
         if alan != "kok" and len(t) > 160:
             out.append((alan, "uzun_sik_aciklama_sizmis_olabilir", t[:60] + "…"))
     if not _SON_OK.search(kok or "") or re.search(r"\s[a-zçğıöşü]\s*\(", kok or ""):
         out.append(("kok", "kok_kesik_olabilir", (kok or "")[-60:]))
+    elif "?" not in (kok or "") and not re.search(r"[:…]\s*(\([^)]*\))?\s*$", kok or ""):
+        out.append(("kok", "kok_soru_isaretsiz", (kok or "")[-60:]))
     vs = list((siklar or {}).values())
     if sum(bool(_ROMEN_SIK.match(v.strip())) for v in vs) >= 2:
         for k, v in siklar.items():
@@ -287,7 +310,7 @@ def asama_metin(girdi):
     sayac = collections.Counter()
     rapor = []
     for i, s in enumerate(sorular):
-        anahtar = s.get("eski_id") or s.get("numara") or s.get("no") or i
+        anahtar = s.get("anahtar") or s.get("eski_id") or s.get("numara") or s.get("no") or i
         for alan, tur, parca in metin_sorunlari(s.get("metin") or s.get("kok"), s.get("secenekler")):
             sayac[tur] += 1
             rapor.append({"soru": anahtar, "alan": alan, "tur": tur, "parca": parca})
@@ -303,7 +326,7 @@ def asama_metin(girdi):
             say.update(kucuk(w) for w in re.findall(tok, t))
     sik = [w for w, c in say.items() if c >= 4 and len(w) >= 4]
     for i, s in enumerate(sorular):
-        anahtar = s.get("eski_id") or s.get("numara") or s.get("no") or i
+        anahtar = s.get("anahtar") or s.get("eski_id") or s.get("numara") or s.get("no") or i
         for t in [s.get("metin") or s.get("kok") or ""] + list((s.get("secenekler") or {}).values()):
             for w in re.findall(tok, t):
                 lw = kucuk(w)

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Gorsel from "@/components/Gorsel";
 
 /** Açıklama bloğu: metin paragrafı ya da yalnızca kendisi kadar kırpılmış şekil/tablo. */
 export type AciklamaBlogu =
@@ -32,13 +33,12 @@ export default function AciklamaKutusu({
 
   const tamGorsel = (
     <div className="overflow-hidden rounded-xl border border-cizgi bg-white">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Gorsel
         src={gorsel!}
         alt="Kitaptaki açıklama"
         loading="lazy"
         className="block h-auto w-full"
-        onError={() => setGorselHata(true)}
+        onBasarisiz={() => setGorselHata(true)}
       />
     </div>
   );
@@ -61,9 +61,9 @@ export default function AciklamaKutusu({
               </p>
             ) : (
               <div key={i} className="rounded-lg bg-white p-1.5">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Gorsel
                   src={b.url!}
+                  yol={b.yol}
                   alt={b.tur === "sekil" ? "Kitaptaki şekil" : "Kitaptaki tablo"}
                   loading="lazy"
                   width={b.w}

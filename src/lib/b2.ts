@@ -65,17 +65,21 @@ async function yetkilen(): Promise<Yetki> {
   return yetki;
 }
 
-/** Görüntü yolları için imzalı indirme bağlantıları (tek ağ isteği, 6 saat geçerli). */
+/**
+ * Görüntü yolları için imzalı indirme bağlantıları. Jeton 26 saat geçerli, sunucuda en çok 2 saat
+ * önbellekte: verilen her bağlantı en az 24 saat çalışır (eskiden 6/5 saatti; önbelleğin sonunda
+ * açılan sayfanın görselleri ~1 saat sonra yüklenmiyordu — HATALAR.md E7).
+ */
 export async function b2Baglantilari(yollar: string[]): Promise<Map<string, string>> {
   const y = await yetkilen();
   if (!indirme || indirme.bitis < Date.now()) {
     const c = await fetch(`${y.apiUrl}/b2api/v3/b2_get_download_authorization`, {
       method: "POST",
       headers: { Authorization: y.token },
-      body: JSON.stringify({ bucketId: y.bucketId, fileNamePrefix: "", validDurationInSeconds: 6 * 3600 }),
+      body: JSON.stringify({ bucketId: y.bucketId, fileNamePrefix: "", validDurationInSeconds: 26 * 3600 }),
     });
     if (!c.ok) throw new Error(`B2 indirme yetkisi: ${c.status}`);
-    indirme = { token: (await c.json()).authorizationToken, bitis: Date.now() + 5 * 3600 * 1000 };
+    indirme = { token: (await c.json()).authorizationToken, bitis: Date.now() + 2 * 3600 * 1000 };
   }
   const harita = new Map<string, string>();
   for (const yol of yollar) {
