@@ -143,13 +143,17 @@ export async function b2Surumler() {
   let ad: string | null = null;
   let id: string | null = null;
   for (let i = 0; i < 50; i++) {
-    const c = await fetch(`${y.apiUrl}/b2api/v3/b2_list_file_versions`, {
+    const c: Response = await fetch(`${y.apiUrl}/b2api/v3/b2_list_file_versions`, {
       method: "POST",
       headers: { Authorization: y.token },
       body: JSON.stringify({ bucketId: y.bucketId, maxFileCount: 10000, startFileName: ad ?? undefined, startFileId: id ?? undefined }),
     });
     if (!c.ok) throw new Error(`B2 sürüm listesi: ${c.status} ${(await c.text()).slice(0, 150)}`);
-    const v = await c.json();
+    const v: {
+      files?: { fileName: string; fileId: string; contentLength: number; uploadTimestamp: number; action: string }[];
+      nextFileName?: string | null;
+      nextFileId?: string | null;
+    } = await c.json();
     for (const f of v.files ?? [])
       sonuc.push({ ad: f.fileName, id: f.fileId, boyut: f.contentLength, zaman: f.uploadTimestamp, eylem: f.action });
     ad = v.nextFileName ?? null;
