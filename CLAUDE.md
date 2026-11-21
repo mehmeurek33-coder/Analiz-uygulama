@@ -55,9 +55,11 @@ atar. Hiçbir soru eklemeden önce:
    kutu/açıklama sızıntısı, aşırı uzun son şık, kesik kök, Romen şıkları) + `meditus_soru.py` sorunlu listesi +
    görüntüyle elle okuma (`soru_kirp.py`): Romen rakamlı öncüller ve şıklar, iki sütunlu eşleştirme şıkları, alt
    satıra taşan son şık, **seroloji (+)/(-) işaretleri** — bunlar OCR'da HER ZAMAN bozulur. Rapor boşalmadan ekleme.
-5. Anahtar denetimi: bozuk okunan cevap harfleri (G/c→C, 8→B, 0/O→D, €→E) görüntüyle; açıklamada "Soruda X
+5. Açıklama görselleri üretildikten sonra **`bolunmus_sekil.py <blok_dizini>`**: sütun sonunda ikiye kesilmiş
+   şekiller (aday çıkarsa görüntüyle bak, tam sayfa görüntüsünden tek parça kırp).
+6. Anahtar denetimi: bozuk okunan cevap harfleri (G/c→C, 8→B, 0/O→D, €→E) görüntüyle; açıklamada "Soruda X
    tanımlanmaktadır" ↔ anahtar uyumu; `anahtar_denetim.py`. Kitap anahtarı esastır, kendin çözme.
-6. Ekledikten sonra veritabanında: set başına soru sayısı, anahtarsız 0, şık 5, konu müfredatta.
+7. Ekledikten sonra veritabanında: set başına soru sayısı, anahtarsız 0, şık 5, konu müfredatta.
 
 **Bilinen OCR tuzakları** (ayrıntı `docs/HATALAR.md`): "Doğru cevap" satırının bozulması (Joğru/ığru/'oğru) →
 açıklama sonraki soruya taşar; "şöyle de sorulabilirdi" kutusunun kendi cevabı; açıklama içindeki numaralı liste
