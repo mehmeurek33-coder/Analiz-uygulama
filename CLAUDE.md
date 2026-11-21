@@ -20,6 +20,21 @@ ve `ANTHROPIC_API_KEY` yoksa kapalıdır.
   olabileceğini söyle.
 - Şema: `supabase/schema.sql`. Analiz görünümü: `v_konu_performans`.
 
+## Oturum başında: hata bildirimleri
+
+Kullanıcı çözerken "⚑ Hata bildir" ile not bırakır (göç 14, `soru_bildirimleri`: `tur` metin/sik/anahtar/
+aciklama/gorsel/konu/diger, `notu`). Her oturumda önce bak:
+
+```sql
+select b.id, b.tur, b.notu, b.olusturma_at, s.id as soru_id, st.ad as set_adi, s.numara, s.metin, s.secenekler, s.dogru_cevap
+from soru_bildirimleri b join sorular s on s.id = b.soru_id join soru_setleri st on st.id = s.set_id
+where b.cozuldu_at is null order by b.olusturma_at;
+```
+
+Her birini kitaptaki görüntüyle (`soru_kirp.py`) kontrol et, düzelt, `cozuldu_at = now(), cozum_notu = '...'` yaz;
+yeni bir hata türüyse `docs/HATALAR.md`'ye ve `pdf_denetim.py metin` desenlerine ekle. Anahtar bildirimi kitap
+anahtarıyla doğrulanır; kendin çözüp anahtarı değiştirme.
+
 ## PDF geldiğinde: önce denetim (her seferinde, aktarımdan ÖNCE)
 
 Kullanıcı soru kitaplarını Backblaze'e yükler (`GET /api/kaynak` listesi, `?ad=` imzalı bağlantı) ya da sohbete
@@ -259,7 +274,7 @@ Raporlarken:
   `src/lib/yedek.ts`: her tablo `yedekler/<YYYY-MM-DD_HHmm>/<tablo>.json.gz` (gizli depo, son 10).
   `/yedek` sayfasında (üst menüde "Yedek") liste, indirme, "Şimdi yedekle". Geri yükleme: kullanıcı dosyaları gönderir,
   Claude JSON'dan `insert ... on conflict (id) do nothing` (ya da `do update`) SQL'i üretip çalıştırır;
-  sıra: kullanici_profil, soru_setleri, sorular, denemeler, cevaplar.
+  sıra: kullanici_profil, soru_setleri, sorular, denemeler, cevaplar, soru_bildirimleri.
 - **İki mod** (`soru_setleri.tur`, `denemeler.anlik`):
   - Soru bankası (`calisma`, varsayılan): her şık anında kontrol edilir, cevap kilitlenir, yanlışta açıklama
     açılır. Anahtar ve açıklama sayfayla önceden gelir (anında geri bildirim), kayıt arka planda yapılır.

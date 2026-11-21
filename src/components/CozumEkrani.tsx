@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import AciklamaKutusu, { type AciklamaBlogu } from "@/components/AciklamaKutusu";
 import SoruKoku from "@/components/SoruKoku";
+import HataBildir from "@/components/HataBildir";
 
 export type Sonuc = {
   dogru: boolean | null;
@@ -467,6 +468,8 @@ export default function CozumEkrani({
                 )}
               </div>
             )}
+
+            <HataBildir soruId={soru.soruId} />
           </article>
         );
       })}

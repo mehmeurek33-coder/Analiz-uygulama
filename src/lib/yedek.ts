@@ -6,7 +6,7 @@ import { yoneticiIstemcisi } from "@/lib/supabase/admin";
  * deposuna yazılır (yedekler/<YYYY-MM-DD_HHmm>/<tablo>.json.gz). Son SAKLA adet tutulur.
  * Vercel cron 3 günde bir çağırır; uygulamadaki Yedek sayfasından elle de alınabilir.
  */
-export const TABLOLAR = ["kullanici_profil", "soru_setleri", "sorular", "denemeler", "cevaplar"] as const;
+export const TABLOLAR = ["kullanici_profil", "soru_setleri", "sorular", "denemeler", "cevaplar", "soru_bildirimleri"] as const;
 const DEPO = "yedekler";
 const SAKLA = 10;
 

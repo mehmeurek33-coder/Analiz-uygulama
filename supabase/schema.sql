@@ -724,3 +724,23 @@ grant select on public.v_konu_oncelik to authenticated, service_role;
 -- art arda aynı vakayı bir kez açık gösterir. soru_gorsel: kökteki şekil/grafi/tablo görüntüsü (B2 yolu).
 alter table public.sorular add column if not exists vaka_metni text;
 alter table public.sorular add column if not exists soru_gorsel text;
+-- ---------------------------------------------------------------- göç 14: soru hata bildirimi
+-- Çözerken bozuk kök/şık/açıklama/anahtar görülürse kullanıcı not bırakır; Claude oturum başında
+-- açık bildirimleri görüntüyle kontrol edip düzeltir ve `cozuldu_at` doldurur.
+create table if not exists public.soru_bildirimleri (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  soru_id uuid not null references public.sorular(id) on delete cascade,
+  tur text not null default 'metin' check (tur in ('metin', 'sik', 'anahtar', 'aciklama', 'gorsel', 'konu', 'diger')),
+  notu text,
+  olusturma_at timestamptz not null default now(),
+  cozuldu_at timestamptz,
+  cozum_notu text
+);
+create index if not exists soru_bildirimleri_acik on public.soru_bildirimleri (user_id) where cozuldu_at is null;
+alter table public.soru_bildirimleri enable row level security;
+drop policy if exists "kendi bildirimleri" on public.soru_bildirimleri;
+create policy "kendi bildirimleri" on public.soru_bildirimleri
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+grant select, insert, update, delete on public.soru_bildirimleri to authenticated;
+grant all on public.soru_bildirimleri to service_role;

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import AciklamaKutusu, { type AciklamaBlogu } from "@/components/AciklamaKutusu";
 import SoruDuzelt from "@/components/SoruDuzelt";
+import HataBildir from "@/components/HataBildir";
 import SoruKoku from "@/components/SoruKoku";
 
 export type SonucSatiri = {
@@ -143,6 +144,8 @@ export default function SonucListesi({ satirlar }: { satirlar: SonucSatiri[] }) 
                   <AciklamaKutusu metin={s.aciklama} gorsel={s.aciklamaGorsel} bloklar={s.aciklamaBloklar} />
                 </div>
               )}
+
+              <HataBildir soruId={s.soruId} />
             </li>
           ))}
         </ul>
