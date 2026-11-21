@@ -173,8 +173,12 @@ Raporlarken:
   kalıcı çözüm kendi alan adı (Cloudflare'den alınıp Vercel'e bağlanır). Kullanıcıya link verirken bu adresi kullan.
 - **Yüklü kitap:** TUSDATA Tüm TUS Soruları – Mikrobiyoloji, **36. baskıya güncellendi** (35. baskı
   soruları yerinde güncellendi, id'ler aynı; 33 yeni 2025 sorusu eklendi, `numara` boş): 72 bölüm, 1525 soru,
-  1471'inde açıklama, 1430'unda blok açıklama (`aciklama_bloklar`). 36. baskıda bulunamayan 66 eski soru
-  silinmedi. Eşleştirme çıktıları scratchpad'de (`yeni/yapi.json`), araçlar `scripts/ocr/yeni_baski.py`,
+  1471'inde açıklama, 1430'unda blok açıklama (`aciklama_bloklar`). İlk eşleştirmede bulunamayan 66 eski
+  sorunun 49'u yeni baskıda var (bölüm ilk soruları, şekilli kökler, bozuk eski kökler); 25'inin açıklaması yeni baskıdan
+  güncellendi. 17'si kullanıcının yüklediği 36. baskı PDF'inde **eksik taranan sayfalarda** (kitap s. 61-62, 75-78,
+  109-110; bölüm 9 soru 15-19 ve 62-67, bölüm 13 soru 4-9): silinmedi, eski baskı metniyle duruyor. İlk aktarımdan
+  kalan ~230 kesik/bozuk kök yeni baskı OCR'ından düzeltildi (eski metinler scratchpad `deney/kok_duzelt_son.json`,
+  `kuyruk_geri.json`). Eşleştirme çıktıları scratchpad'de (`yeni/yapi.json`), araçlar `scripts/ocr/yeni_baski.py`,
   `aciklama_blok.py`.
 - **Meditus Mikrobiyoloji** (6. baskı, "Tamamı Açıklamalı 1000 Güncel Soru", kitapta İmmünoloji 83 yok):
   6 set `Meditus Mikrobiyoloji · 0N <Bölüm>` (Temel Mikrobiyoloji, İmmünoloji, Bakteriyoloji, Mikoloji,
@@ -239,8 +243,8 @@ Raporlarken:
   `GORSEL_YUKSEK=1 aciklama_blok.py` ile tam çözünürlük + tam gri ton WebP q88 (~200 KB/parça; JSON'daki w/h
   ekran boyutu için eski ölçekte kalır). TTS + Meditus ≈ 650 MB, B2 ücretsiz 10 GB. B2 dolarsa Cloudflare R2
   (S3 uyumlu, 10 GB ücretsiz, çıkış ücretsiz) `src/lib/b2.ts` yanına ikinci depo olarak eklenebilir: yol
-  önekine göre depo seçimi (ör. `r2:` önekli yollar R2'den imzalanır). Supabase `aciklamalar` deposunda eski 35. baskı görüntüleri (93 MB)
-  geri dönüş için duruyor, silinebilir. Eski not: Yeni varsayılan
+  önekine göre depo seçimi (ör. `r2:` önekli yollar R2'den imzalanır). Supabase `aciklamalar` deposundaki eski görüntüler silindi (21.11.2026, 1324 dosya; tüm
+  yollar B2'de doğrulandı). Eski not: Yeni varsayılan
   4 gri ton kayıpsız: kitap başına ~40 MB. Metin katmanlı PDF'lerde metin zaten doğru: görüntüyü
   yalnızca tablo/şekil içeren açıklamalara üret. Böylece 33 kitap 1 GB'a sığar. Sığmazsa seçenekler:
   Cloudflare R2 / Backblaze B2 (10 GB ücretsiz) ya da Supabase Pro. Soru çözümü Claude kotası harcamaz.
