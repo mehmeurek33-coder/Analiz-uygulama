@@ -51,7 +51,7 @@ atar. Hiçbir soru eklemeden önce:
    (`pdf_denetim.py yapi <D>`): bölüm içi numara boşlukları (eksik sayfaya denk gelenler ayrı), cevapsız,
    aynı numaralı, **açıklaması eksik sayfayı aşan** sorular (cevap/açıklama başka soruya ait olabilir — görüntüyle
    bak). Kitaptaki toplam soru sayısını (kapak "1000 soru", içindekiler) bulunanla karşılaştır.
-4. Şık ve kök denetimi: **`pdf_denetim.py metin <girdi.json>`** (bozuk +/- işareti, OCR artığı, bitişik kelime,
+4. **`ocr_kural.py duzelt <girdi.json>`** (öğrenilmiş OCR eşlemeleri, `ocr_sozluk.json`) → **`ocr_kural.py nadir`** (bir kez geçen kelimeleri bağlamıyla METİN olarak oku, bozukları düzelt ve sözlüğe ekle; tam görsel tarama YAPMA, pahalı) → **`ocr_kural.py denetle`**. Şık ve kök denetimi: **`pdf_denetim.py metin <girdi.json>`** (bozuk +/- işareti, OCR artığı, bitişik kelime,
    kutu/açıklama sızıntısı, aşırı uzun son şık, kesik kök, Romen şıkları) + `meditus_soru.py` sorunlu listesi +
    görüntüyle elle okuma (`soru_kirp.py`): Romen rakamlı öncüller ve şıklar, iki sütunlu eşleştirme şıkları, alt
    satıra taşan son şık, **seroloji (+)/(-) işaretleri** — bunlar OCR'da HER ZAMAN bozulur. Rapor boşalmadan ekleme.
@@ -240,6 +240,10 @@ Raporlarken:
   kalan ~230 kesik/bozuk kök yeni baskı OCR'ından düzeltildi (eski metinler scratchpad `deney/kok_duzelt_son.json`,
   `kuyruk_geri.json`). Eşleştirme çıktıları scratchpad'de (`yeni/yapi.json`), araçlar `scripts/ocr/yeni_baski.py`,
   `aciklama_blok.py`.
+- **TTS Farmakoloji** (35. baskı, taranmış): 52 set `TTS Farmakoloji · NN <alt bölüm>` (kaynak Tüm TUS Soruları, ders
+  Farmakoloji; konu = alt bölüm adı, müfredatta TTS içindekileri), 1390 soru, 1384 blok açıklama (B2 `tts-farmakoloji/`),
+  3 soru_gorsel. Kitapta kullanıcının kalem işaretleri var; varyant kutusu açıklamadan ÖNCE. İlk 251 soru tam görsel
+  taramadan geçti, kalanı nadir kelime yöntemiyle (B39-B40). Meditus Farmakoloji henüz yüklenmedi.
 - **Meditus Mikrobiyoloji** (6. baskı, "Tamamı Açıklamalı 1000 Güncel Soru", kitapta İmmünoloji 83 yok):
   6 set `Meditus Mikrobiyoloji · 0N <Bölüm>` (Temel Mikrobiyoloji, İmmünoloji, Bakteriyoloji, Mikoloji,
   Viroloji, Parazitoloji), 999 soru, 994'ünde blok açıklama (B2 klasörü `meditus-mikrobiyoloji/`).
