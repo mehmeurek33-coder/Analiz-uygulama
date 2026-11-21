@@ -719,3 +719,8 @@ select user_id, ders, konu, soru, cozulen, deneme, son36,
        )::numeric, 3) as oncelik
 from h;
 grant select on public.v_konu_oncelik to authenticated, service_role;
+-- ---------------------------------------------------------------- göç 13: vaka soruları ve soru görseli
+-- vaka_metni: birden çok sorunun paylaştığı vaka (TUSDATA vaka soruları); her soruda tekrarlanır, çözüm ekranı
+-- art arda aynı vakayı bir kez açık gösterir. soru_gorsel: kökteki şekil/grafi/tablo görüntüsü (B2 yolu).
+alter table public.sorular add column if not exists vaka_metni text;
+alter table public.sorular add column if not exists soru_gorsel text;

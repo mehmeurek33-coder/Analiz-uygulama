@@ -48,6 +48,15 @@ soru başı sanılır; altı çizili kelime "(" ya da tek "o" olur; tarama kenar
 kaybolur ("8." = 18); "A)" → "AJ"; bölüm açılış sayfasında sütun kırpması farklı; kök kesik kalır
 ("... aşağıdakilerden i (Sonbahar 2001)") — kökün "?" ya da sınav etiketiyle bittiğini kontrol et.
 
+## Vaka soruları ve kök görseli (göç 13)
+
+- `sorular.vaka_metni`: birden çok sorunun paylaştığı vaka (TUSDATA vaka soruları). Aynı vakanın HER sorusuna aynı
+  metni yaz; çözüm ekranı art arda gelen aynı vakayı ilkinde açık, sonrakilerde "Aynı vaka ▼ göster" diye kapalı
+  gösterir. Karışık denemelerde (rastgele/öncelikli) soru vakasıyla birlikte gelir.
+- `sorular.soru_gorsel`: kökteki şekil/grafi/tablo görüntüsünün B2 yolu (`<kaynak-klasör>/soru-<id>.webp`,
+  `b2_yukle.py`). Yüksek kalite, kırpıntı yalnızca şekil kadar. Görsel varken `[Şekil: ...]` tarifi gereksiz.
+- `soru-ekle.ts` her iki alanı da alır.
+
 ## PDF → soru aktarma
 
 Kullanıcının hesabı yoksa (aşağıdaki sorgu boş dönerse) önce uygulamada ilk kurulumu yapmasını

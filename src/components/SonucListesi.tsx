@@ -3,6 +3,7 @@
 import { useState } from "react";
 import AciklamaKutusu, { type AciklamaBlogu } from "@/components/AciklamaKutusu";
 import SoruDuzelt from "@/components/SoruDuzelt";
+import SoruKoku from "@/components/SoruKoku";
 
 export type SonucSatiri = {
   id: string;
@@ -13,6 +14,8 @@ export type SonucSatiri = {
   sureSn: number;
   numara: number | null;
   metin: string;
+  vakaMetni?: string | null;
+  soruGorsel?: string | null;
   secenekler: Record<string, string>;
   dogruCevap: string | null;
   aciklama: string | null;
@@ -95,7 +98,7 @@ export default function SonucListesi({ satirlar }: { satirlar: SonucSatiri[] }) 
                 {s.sureSn > 0 && <span className="text-silik">{s.sureSn} sn</span>}
               </div>
 
-              <p className="leading-relaxed whitespace-pre-wrap">{s.metin}</p>
+              <SoruKoku metin={s.metin} vakaMetni={s.vakaMetni} soruGorsel={s.soruGorsel} />
 
               <ul className="mt-3 space-y-1.5">
                 {Object.keys(s.secenekler)

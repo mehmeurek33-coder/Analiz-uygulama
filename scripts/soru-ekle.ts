@@ -23,7 +23,9 @@
  *     "sorular": [
  *       { "numara": 1, "metin": "...", "secenekler": {"A": "...", "B": "..."},
  *         "dogru_cevap": "C", "ders": "Farmakoloji", "konu": "Antibiyotikler",
- *         "alt_konu": "Beta-laktamlar", "zorluk": "orta", "aciklama": "..." }
+ *         "alt_konu": "Beta-laktamlar", "zorluk": "orta", "aciklama": "...",
+ *         "vaka_metni": "(vaka sorularında ortak metin, aynı vakanın her sorusunda)",
+ *         "soru_gorsel": "(kökteki şekil/grafi, B2 yolu: <kaynak-klasör>/soru-<...>.webp)" }
  *     ]
  *   }
  *
@@ -43,6 +45,10 @@ type GirdiSoru = {
   alt_konu?: string | null;
   zorluk?: string | null;
   aciklama?: string | null;
+  /** Vaka soruları: aynı vakayı paylaşan her soruda aynı metin */
+  vaka_metni?: string | null;
+  /** Kökteki şekil/grafi görüntüsünün B2 yolu (önce b2_yukle.py ile yüklenir) */
+  soru_gorsel?: string | null;
 };
 
 type Girdi = {
@@ -150,6 +156,8 @@ const temiz = girdi.sorular.map((s, i) => {
     alt_konu: (s.alt_konu || "").trim() || altKonu || null,
     zorluk,
     aciklama: (s.aciklama || "").trim() || null,
+    vaka_metni: (s.vaka_metni || "").trim() || null,
+    soru_gorsel: (s.soru_gorsel || "").trim() || null,
   };
 });
 
@@ -188,7 +196,7 @@ do {
 
 const kolonlar =
   "numara int, sira int, metin text, secenekler jsonb, dogru_cevap text, " +
-  "ders text, konu text, alt_konu text, zorluk text, aciklama text";
+  "ders text, konu text, alt_konu text, zorluk text, aciklama text, vaka_metni text, soru_gorsel text";
 
 const sql = setId
   ? `with girdi as (select ${etiket}${veri}${etiket}::jsonb as j),
@@ -198,9 +206,10 @@ hedef as (
 ),
 eklenen as (
   insert into public.sorular
-    (set_id, user_id, numara, sira, metin, secenekler, dogru_cevap, ders, konu, alt_konu, zorluk, aciklama)
+    (set_id, user_id, numara, sira, metin, secenekler, dogru_cevap, ders, konu, alt_konu, zorluk, aciklama,
+     vaka_metni, soru_gorsel)
   select h.id, '${kullaniciId}'::uuid, q.numara, h.soru_sayisi + q.sira, q.metin, q.secenekler,
-         q.dogru_cevap, q.ders, q.konu, q.alt_konu, q.zorluk, q.aciklama
+         q.dogru_cevap, q.ders, q.konu, q.alt_konu, q.zorluk, q.aciklama, q.vaka_metni, q.soru_gorsel
   from hedef h
   cross join girdi g
   cross join lateral jsonb_to_recordset(g.j->'sorular') as q(${kolonlar})
@@ -232,9 +241,10 @@ yeni_set as (
 ),
 eklenen as (
   insert into public.sorular
-    (set_id, user_id, numara, sira, metin, secenekler, dogru_cevap, ders, konu, alt_konu, zorluk, aciklama)
+    (set_id, user_id, numara, sira, metin, secenekler, dogru_cevap, ders, konu, alt_konu, zorluk, aciklama,
+     vaka_metni, soru_gorsel)
   select s.id, '${kullaniciId}'::uuid, q.numara, q.sira, q.metin, q.secenekler,
-         q.dogru_cevap, q.ders, q.konu, q.alt_konu, q.zorluk, q.aciklama
+         q.dogru_cevap, q.ders, q.konu, q.alt_konu, q.zorluk, q.aciklama, q.vaka_metni, q.soru_gorsel
   from yeni_set s
   cross join girdi g
   cross join lateral jsonb_to_recordset(g.j->'sorular') as q(${kolonlar})

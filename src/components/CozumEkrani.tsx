@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import AciklamaKutusu, { type AciklamaBlogu } from "@/components/AciklamaKutusu";
+import SoruKoku from "@/components/SoruKoku";
 
 export type Sonuc = {
   dogru: boolean | null;
@@ -26,6 +27,10 @@ export type CozumSorusu = {
   secenekler: Record<string, string>;
   ders: string | null;
   konu: string | null;
+  /** Birden çok sorunun paylaştığı vaka metni (vaka soruları) */
+  vakaMetni?: string | null;
+  /** Kökteki şekil/grafi (imzalı bağlantı) */
+  soruGorsel?: string | null;
   /** Soru bankası modunda, cevaplanmış soruların sonucu */
   sonuc: Sonuc | null;
   /** Soru bankası modunda önceden yüklenen anahtar (anında geri bildirim için) */
@@ -376,7 +381,12 @@ export default function CozumEkrani({
               </button>
             </div>
 
-            <p className="leading-relaxed whitespace-pre-wrap">{soru.metin}</p>
+            <SoruKoku
+              metin={soru.metin}
+              vakaMetni={soru.vakaMetni}
+              soruGorsel={soru.soruGorsel}
+              vakaTekrar={Boolean(soru.vakaMetni) && sorular[i - 1]?.vakaMetni === soru.vakaMetni}
+            />
 
             <div className="mt-4 space-y-2">
               {harfler.map((harf) => {
