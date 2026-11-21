@@ -175,7 +175,7 @@ Raporlarken:
   soruları yerinde güncellendi, id'ler aynı; 33 yeni 2025 sorusu eklendi, `numara` boş): 72 bölüm, 1525 soru,
   1471'inde açıklama, 1430'unda blok açıklama (`aciklama_bloklar`). İlk eşleştirmede bulunamayan 66 eski
   sorunun 49'u yeni baskıda var (bölüm ilk soruları, şekilli kökler, bozuk eski kökler); 25'inin açıklaması yeni baskıdan
-  güncellendi. 17'si kullanıcının yüklediği 36. baskı PDF'inde **eksik taranan sayfalarda** (kitap s. 61-62, 75-78,
+  güncellendi. 17'si kullanıcının yüklediği 36. baskı PDF'inde **eksik taranan sayfalarda** (kitap s. 61-62, 77-78 (76→79 atlıyor),
   109-110; bölüm 9 soru 15-19 ve 62-67, bölüm 13 soru 4-9): silinmedi, eski baskı metniyle duruyor. İlk aktarımdan
   kalan ~230 kesik/bozuk kök yeni baskı OCR'ından düzeltildi (eski metinler scratchpad `deney/kok_duzelt_son.json`,
   `kuyruk_geri.json`). Eşleştirme çıktıları scratchpad'de (`yeni/yapi.json`), araçlar `scripts/ocr/yeni_baski.py`,
