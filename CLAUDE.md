@@ -165,6 +165,12 @@ Raporlarken:
 - **Canlı adres:** https://analiz-uygulama.vercel.app — Vercel projesi `prj_BgWUXNUwRwInDqCATPVq2fvcs9re`,
   GitHub `mehmeurek33-coder/Analiz-uygulama`, üretim dalı `claude/question-practice-analyzer-9xu016`.
   Bu dala push otomatik yayınlanır. Fonksiyon bölgesi `vercel.json` ile Dublin (`dub1`), veritabanına yakın.
+- **Kullanıcının adresi: https://tusanaliz.mehmeurek33.workers.dev** — Türk operatörü `*.vercel.app`'i
+  engelledi (21.11.2026, mobil veride ERR_CONNECTION_CLOSED; VPN ile açılıyor). Cloudflare Worker `tusanaliz`
+  (kodu `cloudflare/worker.js`) istekleri Vercel'e iletir, yönlendirmelerdeki adresi geri yazar. Güncellemek için
+  API anahtarı ortamda kayıtlı (api.cloudflare.com, "Edit Cloudflare Workers"):
+  `PUT /client/v4/accounts/<id>/workers/scripts/tusanaliz` (multipart, `main_module`). workers.dev de engellenirse
+  kalıcı çözüm kendi alan adı (Cloudflare'den alınıp Vercel'e bağlanır). Kullanıcıya link verirken bu adresi kullan.
 - **Yüklü kitap:** TUSDATA Tüm TUS Soruları – Mikrobiyoloji, **36. baskıya güncellendi** (35. baskı
   soruları yerinde güncellendi, id'ler aynı; 33 yeni 2025 sorusu eklendi, `numara` boş): 72 bölüm, 1525 soru,
   1471'inde açıklama, 1430'unda blok açıklama (`aciklama_bloklar`). 36. baskıda bulunamayan 66 eski soru
