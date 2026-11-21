@@ -86,5 +86,9 @@ Meditus Mikrobiyoloji (6. baskı, 999 soru) böyle alındı. `<D>` = çalışma 
 `pdf_denetim.py sayfa <pdf> <dizin>` — kaynak/ders tahmini, metin katmanı, kitap sayfa numaraları (üst ve alt
 başlık, çizgili "—— 26 ——" altlık dahil) ile **eksik / çift / boş / ters sayfa**. TTS 36. baskıda 3 eksik
 aralığı (s. 61-62, 77-78, 109-110) doğru buldu, Meditus'ta (eksiksiz) sahte uyarı vermedi.
+`pdf_denetim.py metin <girdi.json>` — kök/şık metninde bilinen OCR bozulmaları (bkz. `docs/HATALAR.md`).
+`rakam_ikinci.py <D> <db.json> <idler.json> <çıktı>` — soru bölgesini 2× büyütüp ikinci OCR; rakam farkları.
+`bolunmus_sekil.py <blok_dizini>` — sütun sonunda ikiye kesilmiş açıklama şekilleri.
+`soru_gorsel.py` — kökteki şekil/grafiği keser (`sorular.soru_gorsel`). `b2_yukle.py` — `UYGULAMA_URL` ile B2'ye yükleme.
 `pdf_denetim.py yapi <D>` — yapi.json'dan numara boşlukları, eksik sayfadaki sorular, cevapsız, aynı numara ve
 **açıklaması eksik sayfayı aşan** (yanlış açıklama/cevap riski) sorular. `sayfa_no.py` tek sayfanın numarasını okur.

@@ -169,3 +169,8 @@ CLAUDE.md                    Claude için yöntem: PDF aktarma kuralları, anali
 - Cevap anahtarı bulunamayan sorular çözülebilir ama orana katılmaz; sonuç ekranında uyarı çıkar.
 - Vercel ücretsiz planda sunucu fonksiyonu 60 saniye ile sınırlıdır; bu yüzden PDF parça parça
   işlenir. Çok uzun PDF'lerde sayfadan ayrılma.
+
+## Kendi kopyanı kurmak
+
+`docs/KURULUM.md` dosyasını Claude Code'a yapıştır: hesaplar, veritabanı, yayın, ara adres ve kaynaklardan soru
+aktarırken dikkat edilecek her şey adım adım.
