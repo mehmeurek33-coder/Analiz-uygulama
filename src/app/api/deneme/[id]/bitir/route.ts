@@ -13,10 +13,13 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
 
   const { data: deneme } = await supabase
     .from("denemeler")
-    .select("anlik")
+    .select("anlik, bitti_at")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
+  if (!deneme) return NextResponse.json({ hata: "Deneme bulunamadı." }, { status: 404 });
+  // Çift dokunma / tekrar gönderim: bitmiş denemeyi yeniden puanlama, bitiş saatini değiştirme
+  if (deneme.bitti_at) return NextResponse.json({ zatenBitti: true });
 
   const { data: cevaplar, error } = await supabase
     .from("cevaplar")
@@ -29,7 +32,7 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
 
   // Soru bankası turunda hiç soru çözülmediyse turu kaydetme: sil (önceki tamamlanmış tur
   // "Tamamlandı" olarak kalır, boş tur onu gölgelemez)
-  if (deneme?.anlik && !cevaplar.some((c) => c.isaretlenen != null || c.aciklama_bakildi)) {
+  if (deneme.anlik && !cevaplar.some((c) => c.isaretlenen != null || c.aciklama_bakildi)) {
     await supabase.from("denemeler").delete().eq("id", id).eq("user_id", user.id);
     return NextResponse.json({ silindi: true });
   }
@@ -73,7 +76,7 @@ export async function POST(_request: Request, ctx: { params: Promise<{ id: strin
     ...cevaplar.filter((c) => c.isaretlenen != null || c.aciklama_bakildi).map((c) => c.sira),
   );
   const gecilen = cevaplar
-    .filter((c) => c.isaretlenen == null && !c.aciklama_bakildi && (!deneme?.anlik || c.sira < sonSira))
+    .filter((c) => c.isaretlenen == null && !c.aciklama_bakildi && (!deneme.anlik || c.sira < sonSira))
     .map((c) => c.id);
   const simdi = new Date().toISOString();
   for (let i = 0; i < gecilen.length; i += 150) {

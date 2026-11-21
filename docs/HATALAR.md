@@ -1,0 +1,59 @@
+# Hata ve düzeltme günlüğü
+
+Bu projede yaşanan hatalar, kök nedenleri, yapılan düzeltme ve bir daha olmaması için alınan önlem.
+Yeni bir kitap/PDF aktarırken önce `CLAUDE.md` → "PDF geldiğinde: önce denetim" bölümünü uygula; buradaki
+maddeler o kontrol listesinin gerekçesidir. Yeni hata bulunca buraya ekle.
+
+## A. Kaynak PDF ve tarama
+
+| # | Hata | Neden | Düzeltme | Önlem |
+|---|------|-------|----------|-------|
+| A1 | TTS 36. baskıda 17 eski soru "yeni baskıda yok" sanıldı | Yüklenen PDF'te 3 aralık taranmamış (kitap s. 61-62, 77-78, 109-110) | Sorular eski baskı metniyle bırakıldı; kullanıcıya eksik sayfalar söylendi | `pdf_denetim.py sayfa`: kitap sayfa numarasıyla eksik/çift sayfa tespiti; aktarımdan önce rapor |
+| A2 | CAMP sorusunun (TTS 9. bölüm) anahtarı "E", açıklaması enterokok tablosu göründü | Açıklama eksik sayfaya (77) denk geliyordu; araç atlamadan sonraki ilk "Doğru cevap" satırını aldı | Anahtar C kaldı, eski baskının açıklaması geri kondu | `pdf_denetim.py yapi` "açıklaması eksik sayfayı aşan" listesi; bu sorular görüntüyle kontrol edilir |
+| A3 | Meditus'ta 50 sayfada sütun yanlış kesildi, soru numaraları kayboldu | Sütun arası "en az mürekkepli pencere" iki sütuna yayılan tabloda yanılıyordu | Sütun arası 24 yatay bantta boş kalan pencereyle bulunuyor; `KOLON_ARALIK` | Kırpıntı kenarında mürekkep kontrolü |
+| A4 | Hizalı metnin sol kenarı ve çerçeve çizgisi "sekme" sanılıp kırpıldı | Kenar sekmesi ölçütü yalnızca mürekkep yoğunluğuydu | Sekme kırpılmıyor, dış şerit beyazlatılıyor (`KENAR_BEYAZ`) | — |
+| A5 | Taramada sayfa kenarı kesik: "18." → "8." | Kitap kaymış taranmış | Komşu sorular arasındaki konumdan numara atanıyor | Numara zinciri bölüm içinde, boşluk raporu |
+
+## B. OCR ve ayrıştırma
+
+| # | Hata | Neden | Düzeltme |
+|---|------|-------|----------|
+| B1 | Açıklamaya sonraki sorunun metni karıştı (TTS'te 8, ayrıca birkaç başka) | "Doğru cevap" satırı "Joğru/ığru/'oğru/u cevap" okundu, bitiş bulunamadı | Cevap satırı deseni yalnız "u cevap: X" sonuna bakıyor; "Cc"/"GC" gibi çift harf kabul |
+| B2 | Varyant kutusunun ("şöyle de sorulabilirdi") cevabı asıl soruya yazıldı (HPV 6/11 sorusu E→A) | Kutu kendi "Doğru cevap" satırını taşıyor | Varyant kutuları ayrı işaretleniyor; Meditus'ta "sorulabilecek" cümlesi varyant sanılmasın diye kapalı |
+| B3 | Açıklamadaki "1. Ökaryot 2. Prokaryot" listesi soru başı sanıldı | Numaralı satır deseni | Gerçek soru ya cevap satırından sonra ya da sütun başında gelir; yapı bir sonraki soruya kadar yeniden çıkarılır |
+| B4 | Seçenekler kayboldu: "A)" → "AJ"/"Aji", "C)" → "G)", "E)" → "€)/EY" | OCR | Şık işaretleri sırayla A-E aranır, bilinen bozulmalar eşlenir |
+| B5 | Son şık alt satıra taştı, kesildi (Meditus 87 soru) | Şık bloğu satır sonunda bitiriliyordu | Noktalamayla bitmeyen satırdan sonra küçük harfle başlayan satır şıka eklenir |
+| B6 | İki sütunlu eşleştirme şıkları (Etken — Tedavi) karıştı | Satır satır OCR iki sütunu birleştirir | 85 Meditus sorusu görüntüden elle yazıldı (`elle_kok.json`, `elle_sik.json`) |
+| B7 | Romen rakamlı öncül/şıklar bozuk ("Il", "IN", "ivelV") | OCR | Öncüller sırayla I, II, III… numaralanır; şıklar görüntüden okunur |
+| B8 | Altı çizili kelimeden "(" ve tek "o" artıkları, yapışık "o" (omikroorganizma) | OCR | Kapanmayan "(" silinir; sözlükle yapışık "o" ayrılır |
+| B9 | Kelime bozulmaları ("Fiajella", "HIVAIDS", "Jenfosit", "1L-6") | OCR | `kelime_duzelt.json` (350 kalıp), interlökin kuralı |
+| B10 | Eski TTS aktarımında ~230 kök kesik ("... aşağıdakilerden i (Sonbahar 2001)") | İlk OCR'da sağ kenar kırpılmıştı | 36. baskı OCR'ından düzeltildi; kök "?" veya sınav etiketiyle bitmeli kontrolü |
+| B11 | TTS'te 58 sorunun son şıkkına açıklamanın ilk cümlesi karıştı | İlk aktarımda şık bloğunun sonu yanlış | 36. baskı şık metniyle kesildi; 49 şıkta karakter bozulması ("Tip |", "!L-4", "Guillain-Barr&") düzeltildi |
+| B12 | Eşleştirme kaçırdı: 66 eski soru "bulunamadı" | Bölüm ilk soruları, şekilli kökler, bozuk eski kökler | Komşu sorular arasında konumla arandı; 49'u bulundu |
+
+## C. Cevap anahtarı
+
+| # | Hata | Düzeltme | Önlem |
+|---|------|----------|-------|
+| C1 | Anaerobik İYE sorusu D → A (kitabın 36. baskısı ve açıklaması) | Uygulandı, cevaplar yeniden puanlandı | Baskılar arası anahtar farkı listelenir, kısa mesafeli ve açıklamayla desteklenenler uygulanır |
+| C2 | Meditus cevap harfi OCR'ı (G/c → C) | 18 bozuk okuma görüntüyle doğrulandı, hepsi doğru eşlenmiş | "Soruda X tanımlanmaktadır" ↔ anahtar uyumu (178/178) |
+
+## D. Uygulama
+
+| # | Hata | Düzeltme |
+|---|------|----------|
+| D1 | Açıklamayı alttan kapatınca ekran zıplıyordu | Kapatma öncesi/sonrası konum farkı kadar anında kaydırma; alttaki soru yerinde kalır |
+| D2 | Ana ekran simgesi kayboldu (workers.dev üzerinden eklenince) | `manifest.webmanifest` girişsiz isteklerde giriş sayfasına yönleniyordu; middleware dışında bırakıldı |
+| D3 | "Bitir" iki kez çağrılınca yeniden puanlama ve bitiş saati değişiyordu | Bitmiş denemede rota hemen döner (`zatenBitti`) |
+| D4 | Operatör `*.vercel.app`'i engelledi (mobil veride ERR_CONNECTION_CLOSED) | Cloudflare Worker `tusanaliz.mehmeurek33.workers.dev` ara adresi (`cloudflare/worker.js`) |
+| D5 | Bir yanlış konuyu listenin başına oturtuyordu ("takıntı") | Öncelik formülüne kanıt ağırlığı, karekök hata katkısı, 36 saatlik doygunluk, denemede tavan |
+| D6 | Bir kez doğru yapınca soru tekrar listesinden düşüyordu | Aralıklı tekrar (kutu 0-4, 2/7/21 gün) |
+
+## E. Depolama ve veri işlemleri
+
+| # | Hata | Düzeltme | Önlem |
+|---|------|----------|-------|
+| E1 | B2'de yeniden yüklenen görsellerin eski sürümleri 106 MB yer kaplıyordu | `/api/b2-bakim` ile 3513 eski sürüm ve 10 referanssız dosya silindi | Her toplu yeniden yüklemeden sonra `{"islem":"eski_surumler"}` |
+| E2 | `update ... from (values ...)` aynı soruya iki satır gelince yalnız birini uyguladı | Değerler soru başına birleştirildi (`jsonb` birleştirme) | Toplu güncellemede kimlik başına tek satır |
+| E3 | Supabase'te kullanılmayan eski görseller (93 MB) ve aktarım tablosu | Silindi (önce tüm yolların B2'de olduğu doğrulandı) | Silmeden önce referans kontrolü |
+| E4 | Görseller 4 gri tona indirilmişti, okunurluk düşüktü | Tam çözünürlük + tam gri WebP q88 (`GORSEL_YUKSEK=1`) | Kullanıcı isteği: kalite düşürülmez |

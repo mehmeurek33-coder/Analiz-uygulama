@@ -46,8 +46,22 @@ def temizle(t):
     t = re.sub(r"\b[oO]{1,2}[a-zçğıöşü]{4,}", yapisik, t)
     if DUZ:
         t = re.sub(r"[A-Za-zÇĞİÖŞÜçğıöşü][\w'-]*", lambda m: DUZ.get(m.group(0), m.group(0)), t)
+    # alti cizili kelimenin cizgisi "(" olarak okunuyor: kapanmayan "(" sil
+    parca, acik = [], []
+    for i, ch in enumerate(t):
+        if ch == "(":
+            acik.append(len(parca))
+        elif ch == ")" and acik:
+            acik.pop()
+        parca.append(ch)
+    for i in reversed(acik):
+        parca[i] = ""
+    t = "".join(parca)
     t = re.sub(r"\s+([,.;:?!)])", r"\1", t)
     t = re.sub(r"\bIi(?=g[GAMDE]\b)", "I", t)
+    # interlökin adlari: "1L-6", "14-12", "11-10" -> "IL-6" (yas/sure/olcu degilse)
+    t = re.sub(r"(?<![\w-])(?:1L|11|14|İL|Il|lL|1l|İl)\s?-\s?(1[0-9]|[1-9])\b(?!\s*(?:yaş|gün|ay\b|saat|hafta|mm|cm|kg|%|kez|sa\b))",
+               r"IL-\1", t)
     t = re.sub(r"(?<![A-Za-zÇĞİÖŞÜçğıöşü])om?(?=[A-ZÇĞİÖŞÜ])", "", t)                  # "oCD4", "omMuayenede"
     t = re.sub(r"(?<![A-Za-zÇĞİÖŞÜçğıöşü])[Jji](?=enfosit)", "l", t)                  # "Jenfosit" -> "lenfosit"
     t = re.sub(r"(?<=[a-zçğıöşü])(?=(?:Hasta|Muayene|Kültür|Bu |Daha|Ayrıca)[a-zçğıöşü])", " ", t)                          # "IigG" -> "IgG"
