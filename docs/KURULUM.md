@@ -34,7 +34,8 @@ Kurallar (CLAUDE.md'deki gibi):
 Kullanıcıya sırayla, linkleriyle ver; her birinde ne yapacağını tek cümleyle söyle:
 
 1. **GitHub** — repoyu kendi hesabına kopyalasın (fork): https://github.com/mehmeurek33-coder/Analiz-uygulama/fork
-   Sonra bu oturuma kendi fork'unu ekle (`add_repo`, push erişimiyle). Çalışma dalını sen seç (ör. `main`).
+   Sonra bu oturuma kendi fork'unu ekle (`add_repo`, push erişimiyle). Güncel kod fork'un varsayılan dalında
+   (`claude/question-practice-analyzer-9xu016`); çalışma dalını buradan aç ya da bu dalı kullan.
 2. **Supabase** — yeni proje: https://supabase.com/dashboard/new
    Bölge **West EU (Ireland) / eu-west-1** olsun (Vercel fonksiyonları `vercel.json`'da Dublin `dub1`; aynı
    bölge gecikmeyi düşürür). Veritabanı şifresini bir yere not etsin (sana söylemesin).
