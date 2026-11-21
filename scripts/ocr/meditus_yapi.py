@@ -126,6 +126,12 @@ for b in BOL:
             continue
         while a["sik_son"] + 1 < a["bitis"] and SIKLI.match(yb.satirlar[a["sik_son"] + 1][4]):
             a["sik_son"] += 1
+        # son sik alt satira tasmis: satir noktalama ile bitmiyor, sonraki satir kucuk harfle basliyor
+        while (a["sik_son"] + 1 < a["bitis"]
+               and not yb.satirlar[a["sik_son"]][4].rstrip().endswith((".", "?", "!", ":", ")"))
+               and re.match(r"^[a-zçğıöşü(]", yb.satirlar[a["sik_son"] + 1][4].strip())
+               and yb.satirlar[a["sik_son"] + 1][:2] == yb.satirlar[a["sik_son"]][:2]):
+            a["sik_son"] += 1
         anahtar = f"med-{b['no']:02d}-{a['no']:03d}"
         if anahtar in SIK_SON:
             a["sik_son"] = SIK_SON[anahtar]

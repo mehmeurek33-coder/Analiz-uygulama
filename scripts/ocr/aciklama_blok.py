@@ -431,8 +431,18 @@ def yatay_kirp(dizi, kenar=10, tablo=False):
     return dizi[y0:y1, x0:x1]
 
 
+# GORSEL_YUKSEK=1: tam cozunurluk (300 dpi) ve tam gri ton, WebP q YUKSEK_Q. JSON'daki w/h eski olcekte
+# kalir (ekranda ayni boyutta gorunur), dosya daha keskin olur (yuksek yogunluklu ekranlar).
+YUKSEK = os.environ.get("GORSEL_YUKSEK") == "1"
+YUKSEK_Q = int(os.environ.get("YUKSEK_Q", "88"))
+
+
 def kaydet(dizi, yol, olcek, kayipsiz):
     im = Image.fromarray(dizi)
+    if YUKSEK:
+        w, h = max(1, round(im.width * olcek)), max(1, round(im.height * olcek))
+        im.save(yol, "WEBP", quality=YUKSEK_Q, method=6)
+        return w, h
     im = im.resize((max(1, round(im.width * olcek)), max(1, round(im.height * olcek))), Image.LANCZOS)
     if kayipsiz:
         adim = 255 / 3
@@ -583,6 +593,8 @@ def tam_goruntu(parcalar, hedef):
             resimler.append((a[y:alt], SUTUN_OLCEK))
     if not resimler:
         return None
+    if YUKSEK:
+        resimler = [(r, 1.0) for r, _ in resimler]
     olcekli = [Image.fromarray(r).resize((round(r.shape[1] * o), round(r.shape[0] * o)), Image.LANCZOS) for r, o in resimler]
     gen = max(r.width for r in olcekli)
     yuk = sum(r.height for r in olcekli) + 20 * (len(olcekli) - 1)
@@ -591,6 +603,9 @@ def tam_goruntu(parcalar, hedef):
     for r in olcekli:
         t.paste(r, ((gen - r.width) // 2, y))
         y += r.height + 20
+    if YUKSEK:
+        t.save(hedef, "WEBP", quality=YUKSEK_Q, method=6)
+        return t.width, t.height
     adim = 255 / 3
     t = t.point(lambda v: int(round(round(v / adim) * adim)))
     t.save(hedef, "WEBP", lossless=True, quality=80, method=4)

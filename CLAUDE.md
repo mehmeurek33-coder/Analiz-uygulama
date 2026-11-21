@@ -229,7 +229,11 @@ Raporlarken:
   yükleme `POST /api/gorsel-yukle?yol=<ad>` (`x-yukleme-anahtari` başlığı = `YUKLEME_ANAHTARI`, değeri
   scratchpad'de `yukleme_anahtari`; araç `b2_yukle.py`), kaynak PDF'ler `GET /api/kaynak`. Açıklama blokları:
   `{t:"m",x}` metin + `{t:"g",yol,w,h,tur}` yalnızca kendisi kadar kırpılmış şekil/tablo; `aciklama_gorsel` tam
-  hâli ("Kitaptaki hâlini göster"). Supabase `aciklamalar` deposunda eski 35. baskı görüntüleri (93 MB)
+  hâli ("Kitaptaki hâlini göster"). **Kalite düşürülmez** (kullanıcı isteği, yer var): görseller
+  `GORSEL_YUKSEK=1 aciklama_blok.py` ile tam çözünürlük + tam gri ton WebP q88 (~200 KB/parça; JSON'daki w/h
+  ekran boyutu için eski ölçekte kalır). TTS + Meditus ≈ 650 MB, B2 ücretsiz 10 GB. B2 dolarsa Cloudflare R2
+  (S3 uyumlu, 10 GB ücretsiz, çıkış ücretsiz) `src/lib/b2.ts` yanına ikinci depo olarak eklenebilir: yol
+  önekine göre depo seçimi (ör. `r2:` önekli yollar R2'den imzalanır). Supabase `aciklamalar` deposunda eski 35. baskı görüntüleri (93 MB)
   geri dönüş için duruyor, silinebilir. Eski not: Yeni varsayılan
   4 gri ton kayıpsız: kitap başına ~40 MB. Metin katmanlı PDF'lerde metin zaten doğru: görüntüyü
   yalnızca tablo/şekil içeren açıklamalara üret. Böylece 33 kitap 1 GB'a sığar. Sığmazsa seçenekler:

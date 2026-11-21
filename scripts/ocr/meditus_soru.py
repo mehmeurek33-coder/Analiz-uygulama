@@ -21,6 +21,13 @@ HARF = dict(yb.HARF)
 
 # kelime sikligi: "omikroorganizmalardan" gibi basina "o" yapismis kelimeleri ayiklamak icin
 kelimeler = collections.Counter(w.lower() for s in yb.satirlar for w in re.findall(r"[A-Za-zÇĞİÖŞÜçğıöşü]{3,}", s[4]))
+# ek sozluk (temiz metinli kaynaklar, orn. TTS sorulari + aciklamalari): <D>/sozluk.json [kelime, ...]
+import os as _os  # noqa: E402
+if _os.path.exists(f"{D}/sozluk.json"):
+    for _w in json.load(open(f"{D}/sozluk.json", encoding="utf-8")):
+        kelimeler[_w.lower()] += 3
+# kelime -> duzeltme (OCR hatalari; elle cikarildi): <D>/kelime_duzelt.json
+DUZ = json.load(open(f"{D}/kelime_duzelt.json", encoding="utf-8")) if _os.path.exists(f"{D}/kelime_duzelt.json") else {}
 
 
 def temizle(t):
@@ -32,13 +39,18 @@ def temizle(t):
 
     def yapisik(m):
         w = m.group(0)
-        govde = w[1:]
-        if kelimeler[w.lower()] <= 2 and kelimeler[govde.lower()] >= max(3, 4 * kelimeler[w.lower()]):
-            return govde
+        for govde in (w[1:], w[2:]):
+            if kelimeler[w.lower()] <= 2 and kelimeler[govde.lower()] >= max(3, 4 * kelimeler[w.lower()]):
+                return govde
         return w
-    t = re.sub(r"\b[oO][a-zçğıöşü]{4,}", yapisik, t)
+    t = re.sub(r"\b[oO]{1,2}[a-zçğıöşü]{4,}", yapisik, t)
+    if DUZ:
+        t = re.sub(r"[A-Za-zÇĞİÖŞÜçğıöşü][\w'-]*", lambda m: DUZ.get(m.group(0), m.group(0)), t)
     t = re.sub(r"\s+([,.;:?!)])", r"\1", t)
-    t = re.sub(r"\bIi(?=g[GAMDE]\b)", "I", t)                          # "IigG" -> "IgG"
+    t = re.sub(r"\bIi(?=g[GAMDE]\b)", "I", t)
+    t = re.sub(r"(?<![A-Za-zÇĞİÖŞÜçğıöşü])om?(?=[A-ZÇĞİÖŞÜ])", "", t)                  # "oCD4", "omMuayenede"
+    t = re.sub(r"(?<![A-Za-zÇĞİÖŞÜçğıöşü])[Jji](?=enfosit)", "l", t)                  # "Jenfosit" -> "lenfosit"
+    t = re.sub(r"(?<=[a-zçğıöşü])(?=(?:Hasta|Muayene|Kültür|Bu |Daha|Ayrıca)[a-zçğıöşü])", " ", t)                          # "IigG" -> "IgG"
     t = re.sub(r"\b[iİ]\.(?=[a-zçğıöşü]{3,})", "L", t)                  # "i.ökosidin" -> "Lökosidin"
     t = re.sub(r"\s{2,}", " ", t)
     return t.strip()
@@ -98,7 +110,7 @@ def kok_metni(y):
             sonuc.append(t)
     # son maddeden sonraki soru cumlesi tek satir
     son_madde = max(i for i, t in enumerate(sonuc) if re.match(r"^[IVX]+\. ", t))
-    return "\n".join(sonuc[:son_madde + 1] + ([" ".join(sonuc[son_madde + 1:])] if sonuc[son_madde + 1:] else []))
+    return "\n".join(sonuc[:son_madde + 1] + ([temizle(" ".join(sonuc[son_madde + 1:]))] if sonuc[son_madde + 1:] else []))
 
 
 cikti, sorunlu = [], 0
