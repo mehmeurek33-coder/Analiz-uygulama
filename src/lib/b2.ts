@@ -15,6 +15,7 @@ type Yetki = {
   downloadUrl: string;
   token: string;
   bucketId: string;
+  yetenekler?: string[];
   bucketName: string;
   bitis: number;
 };
@@ -58,6 +59,7 @@ async function yetkilen(): Promise<Yetki> {
     token: v.authorizationToken,
     bucketId,
     bucketName: ad,
+    yetenekler: depo.allowed?.capabilities ?? [],
     bitis: Date.now() + 20 * 3600 * 1000, // jeton 24 saat geçerli
   };
   return yetki;
@@ -132,4 +134,38 @@ export async function b2Listele(onek = "") {
     boyut: f.contentLength,
     yuklendi: new Date(f.uploadTimestamp).toISOString(),
   }));
+}
+
+/** Tüm dosya sürümleri (bakım için; sayfa sayfa). */
+export async function b2Surumler() {
+  const y = await yetkilen();
+  const sonuc: { ad: string; id: string; boyut: number; zaman: number; eylem: string }[] = [];
+  let ad: string | null = null;
+  let id: string | null = null;
+  for (let i = 0; i < 50; i++) {
+    const c = await fetch(`${y.apiUrl}/b2api/v3/b2_list_file_versions`, {
+      method: "POST",
+      headers: { Authorization: y.token },
+      body: JSON.stringify({ bucketId: y.bucketId, maxFileCount: 10000, startFileName: ad ?? undefined, startFileId: id ?? undefined }),
+    });
+    if (!c.ok) throw new Error(`B2 sürüm listesi: ${c.status} ${(await c.text()).slice(0, 150)}`);
+    const v = await c.json();
+    for (const f of v.files ?? [])
+      sonuc.push({ ad: f.fileName, id: f.fileId, boyut: f.contentLength, zaman: f.uploadTimestamp, eylem: f.action });
+    ad = v.nextFileName ?? null;
+    id = v.nextFileId ?? null;
+    if (!ad) break;
+  }
+  return { surumler: sonuc, yetenekler: y.yetenekler ?? [] };
+}
+
+/** Tek bir dosya sürümünü siler. */
+export async function b2SurumSil(ad: string, id: string) {
+  const y = await yetkilen();
+  const c = await fetch(`${y.apiUrl}/b2api/v3/b2_delete_file_version`, {
+    method: "POST",
+    headers: { Authorization: y.token },
+    body: JSON.stringify({ fileName: ad, fileId: id }),
+  });
+  if (!c.ok) throw new Error(`B2 silme: ${c.status} ${(await c.text()).slice(0, 150)}`);
 }
