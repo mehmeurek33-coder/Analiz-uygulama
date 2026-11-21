@@ -657,7 +657,7 @@ def main():
                     break
                 if len(t) > 3 and not re.fullmatch(r"\W*\d{1,3}\W*", t):
                     govde.append(i)
-            bas_s, bit_s = y["bitis"], (govde[-1] + 1 if govde else y["bitis"])
+            bas_s, bit_s = (govde[0] - 1, govde[-1] + 1) if govde else (y["bitis"], y["bitis"])
         parcalar = genislet(bolgeler(govde), bas_s, bit_s)
         if not parcalar:
             rapor["aciklamasiz"] += 1
