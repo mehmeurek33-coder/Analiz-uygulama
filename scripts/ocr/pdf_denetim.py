@@ -260,7 +260,7 @@ def metin_sorunlari(kok, siklar):
             out.append((alan, "ocr_artigi", t[max(0, m.start() - 20):m.end() + 15]))
         for w in re.findall(r"\S+", t):
             w2 = re.sub(r"[^\wçğıöşüÇĞİÖŞÜ]", "", w)
-            if len(w2) >= 22 and not re.search(r"[A-Z]{2}|\d|-", w):
+            if len(w2) >= 22 and not re.search(r"[A-Z]{2}|\d|[-/]", w):
                 out.append((alan, "bitisik_kelime", w))
         if re.search(r"sorulmaya uygun|Doğru cevap|şöyle de sorulabilir", t, re.I):
             out.append((alan, "kutu_sizmasi", t[-60:]))
