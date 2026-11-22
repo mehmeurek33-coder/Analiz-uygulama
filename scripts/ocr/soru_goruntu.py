@@ -51,7 +51,46 @@ def _hedef_gen():
 HEDEF_GEN = _hedef_gen()
 
 
+def komsu_sutun_temizle(im):
+    """Kenarda, ana metinden ≥14 px dikey boşlukla ayrılmış dar mürekkep şeridi (komşu sütundan taşan harfler)
+    beyazlanır: yalnız ilk/son %14'lük bantta aranır."""
+    a = np.asarray(im).copy()
+    w = a.shape[1]
+    dolu = (a < 140).sum(axis=0) > 0
+    bant = int(w * 0.14)
+    degisti = False
+    # sol: ilk mürekkepten sonra ≥14 px boşluk ve ardından ana metin
+    x = 0
+    while x < bant and not dolu[x]:
+        x += 1
+    if x < bant:
+        y = x
+        while y < bant and dolu[y]:
+            y += 1
+        z = y
+        while z < w and not dolu[z]:
+            z += 1
+        if x <= 3 and z - y >= 14 and y < bant and z < w // 2:  # kenara değen (kesik) harfler; soru numarası değil
+            a[:, :y] = 255
+            degisti = True
+    x = w - 1
+    while x > w - bant and not dolu[x]:
+        x -= 1
+    if x > w - bant:
+        y = x
+        while y > w - bant and dolu[y]:
+            y -= 1
+        z = y
+        while z > 0 and not dolu[z]:
+            z -= 1
+        if x >= w - 4 and y - z >= 14 and y > w - bant and z > w // 2:
+            a[:, y + 1:] = 255
+            degisti = True
+    return Image.fromarray(a) if degisti else im
+
+
 def genislet(im):
+    im = komsu_sutun_temizle(im)
     if im.width >= HEDEF_GEN:
         return im
     c = Image.new("L", (HEDEF_GEN, im.height), 255)
@@ -109,13 +148,15 @@ def devam_mi(son_satir, sonraki, onceki=None):
     şık metninin hizasında girintili (açıklama sütun kenarından başlar, şık devamı 'E)' harfinin sağından)."""
     if sonraki[:2] != son_satir[:2] or sonraki[2] - son_satir[3] > 30 or yb.CEVAP.search(sonraki[4]):
         return False
+    if ACIK.match(sonraki[4].strip()):
+        # küçük harfle başlayan ama sütun soluna dayalı satır (ilk harfi taramada kesilmiş açıklama başı) devam değildir:
+        # gerçek devam satırı şık metninin hizasındadır
+        return sol(sonraki) >= sol(son_satir) - 15
     # satır aralığı şıklar arasındakinden belirgin büyükse (açıklama paragrafı başlıyor) devam değildir
     if onceki is not None and onceki[:2] == son_satir[:2]:
         ara, onceki_ara = sonraki[2] - son_satir[3], son_satir[2] - onceki[3]
         if ara > max(12, onceki_ara * 1.5) and ara > onceki_ara + 5:
             return False
-    if ACIK.match(sonraki[4].strip()):
-        return True
     # son okunan şık D) ise ve hemen altındaki satır "E" ile başlıyorsa (E şıkkı bozuk okunmuş: "EV Acnr...") o da şıktır
     if re.match(r"^[\s\W]{0,3}D\s?[)\]]", son_satir[4]) and re.match(r"^[\s\W]{0,3}[E€£&]", sonraki[4]):
         return True
