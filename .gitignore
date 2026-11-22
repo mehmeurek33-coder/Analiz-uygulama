@@ -11,3 +11,4 @@ next-env.d.ts
 *.pdf
 sorular-*.json
 istek*.json
+__pycache__/
