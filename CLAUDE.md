@@ -269,7 +269,13 @@ Raporlarken:
   Açıklama da kitaptan (göç 17): `sorular.aciklama_kitap` = [{yol,w,h}] sütun parçaları (`soru_goruntu.py --aciklama`,
   B2 `tts-mikrobiyoloji/kitap/<id>-kN.webp`); varsa açıklama bunlarla, "Metin olarak göster" ile blok/metin.
   Blok görselleri `gorsel_kirp.py` ile kenarları kırpılmış (22.11, HATALAR B45; önceki bloklar scratchpad `duzen/bloklar_yedek.json`).
-  Pilot: TTS Mikro bölüm 01, 03, 04 (29 soru). Konum kaynakları: scratchpad `yeni/yapi.json` (eski_id = soru id),
+  **22.11 itibarıyla bütün kitaplar kitap görünümünde** (TTS Mikro 1506/1525 — 17 eksik taranan sayfa + 2 konumsuz metin
+  görünümünde; Meditus Mikro 999, TTS Farma 1390, Meditus Farma 1102). B2: `<kaynak-klasör>/kitap/<id>.webp`, `-kN.webp`.
+  Kullanıcı isteği: soru metniyle artık uğraşılmaz (metne dönüştürme yok), açıklamada "Doğru cevap" satırı görünür, kalem
+  işaretleri (TTS Farma) kalır. Kırpma kuralları ve denetimleri HATALAR B44–B50; yeni kitapta: OCR → yapı → `soru_goruntu.py`
+  (soru + `--aciklama`) → denetim bayraklılarına + rastgele panoya gözle bak → yeni hata türü = yeni kural + negatif test.
+  Toplu araçlar scratchpad: `donustur_tts.py` (TTS Mikro konumları), `donustur_genel.py <ad> <bölümler> <D> <önek> <kaynak> <ders>`,
+  `yukle_tts.py <ad> <b2_klasör>` (YENIDEN=1 yeniden üretilmişi yükler), `pano.py`, `konum_elle.json` (elle konum). Konum kaynakları: scratchpad `yeni/yapi.json` (eski_id = soru id),
   `deney/kayip_konum.json`, `yeni/ekle/yeni_harita.json` (yeni-<aday>). Kalem işaretli TTS Farmakoloji'de dikkat.
 - **Yanlışlarım (tekrar listesi, aralıklı tekrar):** hata yapılan sorular + doğru olsa da "emin değilim"
   işaretlenenler (`cevaplar.emin_degil`) + işaretlemeden açıklamasına bakılanlar
