@@ -800,3 +800,9 @@ grant select on public.v_set_ilerleme to authenticated, service_role;
 -- Soru kitaptaki görüntüsünden çözülür (OCR metin hatası sıfır): kök + şekil + şıklar tek görüntü (B2 yolu,
 -- scripts/ocr/soru_goruntu.py). Varsa çözüm ekranı görüntüyü ve A–E düğmelerini gösterir; metin isteğe bağlı.
 alter table public.sorular add column if not exists soru_kitap_gorsel text;
+
+-- ---------------------------------------------------------------- göç 17: açıklamanın kitaptaki görüntüsü (parça parça)
+-- [{yol, w, h}]: açıklamanın kitaptaki hâli, sütun sütun ayrı görüntüler (scripts/ocr/soru_goruntu.py --aciklama).
+-- Telif kutusu, sayfa üst bilgisi, bölüm bandı ve "şöyle de sorulabilirdi" kutusu atılmış; iki sütuna yayılan
+-- tablo tek parça. Varsa açıklama bunlarla gösterilir; metin/blok hâli "Metin olarak göster" ile.
+alter table public.sorular add column if not exists aciklama_kitap jsonb;

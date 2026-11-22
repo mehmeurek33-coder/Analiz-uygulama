@@ -8,6 +8,9 @@ export type AciklamaBlogu =
   | { t: "m"; x: string }
   | { t: "g"; yol: string; url?: string | null; w: number; h: number; tur?: string };
 
+/** Açıklamanın kitaptaki hâli: sütun sütun görüntü parçaları (tam genişlikte, alt alta). */
+export type KitapParcasi = { yol: string; url: string | null; w: number; h: number };
+
 /** Tam sütun kırpıntısının piksel genişliği: bu genişlikteki görüntü kutuyu doldurur. */
 const SUTUN_GENISLIGI = 720;
 
@@ -22,13 +25,49 @@ export default function AciklamaKutusu({
   metin,
   gorsel,
   bloklar,
+  kitap,
 }: {
   metin: string | null;
   gorsel?: string | null;
   bloklar?: AciklamaBlogu[] | null;
+  kitap?: KitapParcasi[] | null;
 }) {
   const [ikinciAcik, setIkinciAcik] = useState(false);
   const [gorselHata, setGorselHata] = useState(false);
+  const [metinModu, setMetinModu] = useState(false);
+  const [kitapHata, setKitapHata] = useState(false);
+
+  // Kitap görünümü: açıklama kitaptaki hâliyle (OCR yok); metin hâli isteğe bağlı
+  if (kitap && kitap.length > 0 && !metinModu && !kitapHata) {
+    return (
+      <div className="space-y-2">
+        <div className="space-y-1 overflow-hidden rounded-xl border border-cizgi bg-white p-1">
+          {kitap.map((k, i) => (
+            <Gorsel
+              key={k.yol}
+              src={k.url!}
+              yol={k.yol}
+              alt={`Kitaptaki açıklama (${i + 1}/${kitap.length})`}
+              loading="lazy"
+              width={k.w}
+              height={k.h}
+              className="block h-auto w-full"
+              onBasarisiz={() => setKitapHata(true)}
+            />
+          ))}
+        </div>
+        <button type="button" className="text-xs text-silik hover:text-metin hover:underline" onClick={() => setMetinModu(true)}>
+          Metin olarak göster
+        </button>
+      </div>
+    );
+  }
+  const kitabaDon =
+    kitap && kitap.length > 0 && metinModu ? (
+      <button type="button" className="text-xs text-silik hover:text-metin hover:underline" onClick={() => setMetinModu(false)}>
+        Kitaptaki hâlini göster
+      </button>
+    ) : null;
   const gorselVar = Boolean(gorsel) && !gorselHata;
 
   const tamGorsel = (
@@ -75,7 +114,8 @@ export default function AciklamaKutusu({
             ),
           )}
         </div>
-        {gorselVar && (
+        {kitabaDon}
+        {!kitabaDon && gorselVar && (
           <>
             <button
               type="button"
@@ -91,7 +131,13 @@ export default function AciklamaKutusu({
     );
   }
 
-  if (!gorselVar) return metinKutusu(metin);
+  if (!gorselVar || kitabaDon)
+    return (
+      <div className="space-y-2">
+        {metinKutusu(metin)}
+        {kitabaDon}
+      </div>
+    );
 
   return (
     <div className="space-y-2">

@@ -2,10 +2,15 @@
 """
 Sorunun kitaptaki görüntüsü (kök + şekil/tablo + şıklar) — metin yerine kitaptan çözmek için (sorular.soru_kitap_gorsel).
 
-Kullanim: python3 -I soru_goruntu.py <D> <konum.json> <cikti_dizini>
+Kullanim: python3 -I soru_goruntu.py <D> <konum.json> <cikti_dizini> [--aciklama]
+  --aciklama: sorunun yerine açıklamasının kitaptaki görüntüsü (son şıktan "Doğru cevap" satırına kadar; konumda
+    "bitis" = cevap satırı). Telif kutusu ("ASLA HELAL ETMİYORUZ" … "TUSDATA"), sayfa üst bilgisi ("TÜM TUS SORULARI"),
+    bölüm başlık bandı ve "şöyle de sorulabilirdi" kutusu atlanır; kalan satırlar sütun sütun, araya giren atlanmış
+    satırda bölünerek kesilir. Denetim: içinde şık satırı / sınav etiketi / "Doğru cevap" kalan parça (başka soru sızmış).
   konum.json: [{"anahtar": "<soru_id>", "bas": satir, "sik_son": satir, "ust_px": (isteğe bağlı) ilk parçanın üstü}, ...]
               (satir: yeni_baski satirlar indeksi; şekille başlayan soruda numara OCR'a girmeyebilir → ust_px)
 Cikti: <cikti>/<anahtar>.webp (tam çözünürlük, gri, q88) + <cikti>/denetim.json
+  (--aciklama: <anahtar>-k1.webp, -k2.webp … her parça ayrı; denetim.json'da "dosyalar": [{ad, w, h}])
   Soru sütun/sayfa sonunda bölünmüşse parçalar alt alta birleştirilir (sayfa başlığı/altlığı arada kalmaz).
 Denetim (denetim.json; "sorun" boş olmayanlara görüntüyle bak):
   ust_numara_yok    ilk satır soru numarası değil (şekille başlayan soru: numara/şekil üstü dışarıda kalabilir → ust_px)
@@ -25,6 +30,7 @@ import numpy as np
 from PIL import Image
 
 D, KONUM, CIKIS = sys.argv[1], sys.argv[2], sys.argv[3]
+ACIKLAMA = "--aciklama" in sys.argv
 sys.argv = [sys.argv[0], D]
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import yeni_baski as yb  # noqa: E402
@@ -101,8 +107,197 @@ def bos_satir(dizi, y0, y1, yon):
     return eny
 os.makedirs(CIKIS, exist_ok=True)
 S = yb.satirlar
+TELIF_BAS = re.compile(r"HELAL\s*ET", re.I)
+TELIF_SON = re.compile(r"^\W*TUS-?DATA\W*$")
+UST_BILGI = re.compile(r"TÜM\s*TUS\s*SORULARI|^\W*\d{1,3}\W*$")
+SIK = re.compile(r"^[\s\W]{0,3}[A-E][)\]]\s")
+ETIKET = re.compile(r"(İlkbahar|Sonbahar)\s*[-–]?\s*\d{2,4}")
+
+
+def baslik_bandi(s):
+    """Sütun üstündeki bölüm başlık bandı: yalnız büyük harf, kısa, sütunun ilk ~400 pikselinde."""
+    t = s[4].strip()
+    harf = re.sub(r"[^A-Za-zÇĞİÖŞÜçğıöşü]", "", t)
+    return s[2] < 400 and len(harf) >= 5 and harf == harf.upper() and len(t.split()) <= 4
+
+
+def aciklama_satirlari(bas, bitis):
+    """Açıklamada tutulacak satır dizileri (sütun değişince ya da atlanan satırda bölünür)."""
+    diziler, cur, telif = [], [], False
+    for i in range(bas, bitis):
+        s = S[i]
+        if TELIF_BAS.search(s[4]):
+            telif = True
+        atla = telif or s[5] or UST_BILGI.search(s[4]) or baslik_bandi(s)
+        if telif and TELIF_SON.match(s[4].strip()):
+            telif = False
+        if atla or (cur and S[cur[-1]][:2] != s[:2]):
+            if cur:
+                diziler.append(cur)
+            cur = []
+        if not atla:
+            cur.append(i)
+    if cur:
+        diziler.append(cur)
+    return diziler
+
+
+def bos_kosu(dizi, y0, y1, yon, uzun=40):
+    """y0'dan yon yönünde ilk >= uzun satırlık boş koşunun başı; bulunmazsa y1."""
+    n = 0
+    for y in range(y0, y1, yon):
+        if not 0 <= y < dizi.shape[0]:
+            return max(0, min(dizi.shape[0] - 1, y))
+        if int((dizi[y] < 140).sum()) <= 2:
+            n += 1
+            if n >= uzun:
+                return y - yon * (uzun - 1)
+        else:
+            n = 0
+    return y1
+
+
+def en_uzun_koyu(koyu):
+    """Her piksel sütunu için en uzun kesintisiz koyu koşu (satır)."""
+    h = koyu.shape[0]
+    pad = np.zeros((1, koyu.shape[1]), dtype=np.int8)
+    d = np.diff(np.vstack([pad, koyu.astype(np.int8), pad]), axis=0)
+    sonuc = np.zeros(koyu.shape[1], dtype=int)
+    for x in np.where(koyu.any(axis=0))[0]:
+        bas = np.where(d[:, x] == 1)[0]
+        son = np.where(d[:, x] == -1)[0]
+        sonuc[x] = int((son - bas).max()) if len(bas) else 0
+    return sonuc
+
+
+def kenar_bandi(dizi, y0, y1, sag):
+    """Parçanın sütun aralığına dayanan (iki sütuna yayılan tablo/şekil) satır bandı; yoksa None.
+    Kenarda mürekkepli satırların ≤15 px boşlukla süren en uzun koşusu ≥60 px olmalı (kenara değen tek tük harf sayılmaz)."""
+    kenar = dizi[y0:y1, -4:] if sag else dizi[y0:y1, :4]
+    satir = np.where((kenar < 140).sum(axis=1) > 0)[0]
+    if len(satir) == 0:
+        return None
+    en, bas, onceki = None, satir[0], satir[0]
+    for r in list(satir[1:]) + [10**9]:
+        if r - onceki > 15:
+            if en is None or onceki - bas > en[1] - en[0]:
+                en = (bas, onceki)
+            bas = r
+        onceki = r
+    if en[1] - en[0] < 60:
+        return None
+    return y0 + int(en[0]), y0 + int(en[1]) + 1
+
+
+def aciklama_kes(k):
+    y = k["sik_son"] + 1
+    while y < k["bitis"] and devam_mi(S[y - 1], S[y]):  # son şıkkın taşan satırı soruya ait
+        y += 1
+    parcalar, sorun = [], []  # (sayfa, sut, ust, alt)
+    for dz in aciklama_satirlari(y, k["bitis"]):
+        sayfa, sut = S[dz[0]][0], S[dz[0]][1]
+        dizi = resim(sayfa, sut)
+        u = min(S[i][2] for i in dz)
+        a = max(S[i][3] for i in dz)
+        # üst: önceki satırın (soru şıkkı, atlanan satır) hemen altından; arada şekil varsa o da girer
+        onceki = [S[j][3] for j in range(max(0, dz[0] - 3), dz[0]) if tuple(S[j][:2]) == (sayfa, sut) and S[j][3] <= u + 5]
+        if onceki:
+            ust = bos_satir(dizi, max(onceki) + 2, u, 1)
+        else:
+            ust = bos_kosu(dizi, u, 0, -1)
+        # alt: sonraki satırın (cevap, atlanan satır) hemen üstüne; sütun sonuysa uzun boşluğa kadar
+        sonraki = [S[j][2] for j in range(dz[-1] + 1, min(dz[-1] + 4, len(S))) if tuple(S[j][:2]) == (sayfa, sut) and S[j][2] >= a - 5]
+        if sonraki:
+            alt = bos_satir(dizi, min(sonraki) - 2, a, -1) + 1
+        else:
+            alt = bos_kosu(dizi, a, dizi.shape[0], 1) + 1
+        parcalar.append([sayfa, sut, max(0, ust), min(dizi.shape[0], max(alt, a))])
+        for i in dz:
+            if SIK.match(S[i][4]) or ETIKET.search(S[i][4]) or yb.CEVAP.search(S[i][4]):
+                sorun.append("baska_soru_izi: " + S[i][4][:40])
+    # iki sütuna yayılan tablo/şekil: sol parçada sağ kenara dayanan bant -> o bant L+R yan yana, sağ parçadan çıkar
+    cikti = []
+    genis = []
+    for sayfa, sut, ust, alt in parcalar:
+        if sut == "L":
+            bant = kenar_bandi(resim(sayfa, "L"), ust, alt, True)
+            if bant:
+                b0 = bos_satir(resim(sayfa, "L"), bant[0], ust, -1)
+                b1 = bos_satir(resim(sayfa, "L"), bant[1], alt, 1) + 1
+                genis.append((sayfa, b0, b1))
+                if b0 - ust > 20:
+                    cikti.append(("tek", sayfa, "L", ust, b0))
+                cikti.append(("genis", sayfa, None, b0, b1))
+                if alt - b1 > 20:
+                    cikti.append(("tek", sayfa, "L", b1, alt))
+                sorun.append("bilgi: iki sütuna yayılan bant birleştirildi")
+                continue
+        cikti.append(("tek", sayfa, sut, ust, alt))
+    # sağ sütun parçalarından genis bantları çıkar
+    son = []
+    for tur, sayfa, sut, ust, alt in cikti:
+        if tur == "tek" and sut == "R":
+            for gs, b0, b1 in genis:
+                if gs == sayfa and b0 < alt and b1 > ust:
+                    if b0 - ust > 20:
+                        son.append(("tek", sayfa, "R", ust, b0))
+                    ust = max(ust, b1)
+            if alt - ust > 20:
+                son.append(("tek", sayfa, "R", ust, alt))
+        else:
+            son.append((tur, sayfa, sut, ust, alt))
+    resimler = []
+    for tur, sayfa, sut, ust, alt in son:
+        if tur == "genis":
+            L, R = resim(sayfa, "L"), resim(sayfa, "R")
+            h = alt - ust
+            c = Image.new("L", (L.shape[1] + R.shape[1], h), 255)
+            c.paste(Image.fromarray(L[ust:alt]), (0, 0))
+            c.paste(Image.fromarray(R[ust:alt]), (L.shape[1], 0))
+            resimler.append(c)
+        else:
+            d = resim(sayfa, sut)[ust:alt].copy()
+            # kenar sekmesini ("Temel Mikrobiyoloji") beyazla
+            koyu = d < 70  # sekme düz siyah; gri tablo zemini sayılmasın
+            yog = en_uzun_koyu(koyu) >= 150  # sekme: sütunda ≥150 px kesintisiz koyu (yazı/çizgi değil)
+            w = len(yog)
+            for bas, yon in ((0, 1), (w - 1, -1)):
+                x = bas
+                while 0 <= x < w and abs(x - bas) < 0.25 * w and not yog[x]:
+                    x += yon
+                b = x
+                while 0 <= x < w and yog[x]:
+                    x += yon
+                if 25 <= abs(x - b) <= 0.2 * w:
+                    lo, hi = sorted((b, x))
+                    # başlık bandı değil, sekme: bloğun dolu olduğu satırlarda bloğun iç yanı (sayfa içine doğru) boş
+                    satir = koyu[:, lo:hi].mean(axis=1) > 0.8
+                    ic = koyu[satir, hi + 10: hi + 80] if yon == 1 else koyu[satir, max(0, lo - 80): max(0, lo - 10)]
+                    if satir.sum() and ic.size and ic.mean() < 0.3:
+                        d[:, max(0, lo - 6):hi + 7] = 255
+            resimler.append(Image.fromarray(d))
+    return resimler, sorun
+
+
 denetim = []
 for k in json.load(open(KONUM, encoding="utf-8")):
+    if ACIKLAMA:
+        if not k.get("bitis"):
+            denetim.append({"anahtar": k["anahtar"], "parca": 0, "sorun": ["bitis_yok"]})
+            continue
+        parcalar, sorun = aciklama_kes(k)
+        if not parcalar:
+            denetim.append({"anahtar": k["anahtar"], "parca": 0, "sorun": ["aciklama_yok"]})
+            continue
+        # her parça ayrı görüntü (sütun genişliğinde; iki sütuna yayılan bant iki kat genişlikte): uygulama
+        # alt alta tam genişlikte gösterir, böylece yazı boyu parçadan parçaya değişmez
+        dosyalar = []
+        for n, p in enumerate(parcalar, 1):
+            ad = f"{k['anahtar']}-k{n}.webp"
+            p.save(f"{CIKIS}/{ad}", quality=88, method=6)
+            dosyalar.append({"ad": ad, "w": p.width, "h": p.height})
+        denetim.append({"anahtar": k["anahtar"], "parca": len(parcalar), "dosyalar": dosyalar, "sorun": sorun})
+        continue
     bas, son = k["bas"], k["sik_son"]
     # son şık alt satıra taşmış (küçük harfle ya da şık hizasında girintili başlayan satır şıkka aittir)
     sik_son_ilk = son

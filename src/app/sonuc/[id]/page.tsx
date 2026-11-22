@@ -3,7 +3,7 @@ import BandAciklama from "@/components/BandAciklama";
 import IstatistikKarti from "@/components/IstatistikKarti";
 import KonuMetre from "@/components/KonuMetre";
 import SonucListesi, { type SonucSatiri } from "@/components/SonucListesi";
-import { blokYollari, bloklariHazirla, gorselBaglantilari } from "@/lib/aciklamaGorsel";
+import { blokYollari, bloklariHazirla, gorselBaglantilari, kitabiHazirla, kitapYollari } from "@/lib/aciklamaGorsel";
 import { band, yuzde, type KonuOzeti } from "@/lib/analiz";
 import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
 
@@ -27,7 +27,7 @@ export default async function SonucPage({ params }: { params: Promise<{ id: stri
   const { data: satirlar } = await supabase
     .from("cevaplar")
     .select(
-      "id, soru_id, sira, isaretlenen, dogru, sure_sn, sorular(numara, metin, vaka_metni, soru_gorsel, soru_kitap_gorsel, secenekler, dogru_cevap, aciklama, aciklama_gorsel, aciklama_bloklar, ders, konu, alt_konu)",
+      "id, soru_id, sira, isaretlenen, dogru, sure_sn, sorular(numara, metin, vaka_metni, soru_gorsel, soru_kitap_gorsel, secenekler, dogru_cevap, aciklama, aciklama_gorsel, aciklama_bloklar, aciklama_kitap, ders, konu, alt_konu)",
     )
     .eq("deneme_id", id)
     .order("sira", { ascending: true });
@@ -39,8 +39,9 @@ export default async function SonucPage({ params }: { params: Promise<{ id: stri
         soru_kitap_gorsel?: string | null;
         aciklama_gorsel?: string | null;
         aciklama_bloklar?: unknown;
+        aciklama_kitap?: unknown;
       };
-      return [q?.soru_gorsel, q?.soru_kitap_gorsel, q?.aciklama_gorsel, ...blokYollari(q?.aciklama_bloklar)];
+      return [q?.soru_gorsel, q?.soru_kitap_gorsel, q?.aciklama_gorsel, ...blokYollari(q?.aciklama_bloklar), ...kitapYollari(q?.aciklama_kitap)];
     }),
   );
 
@@ -56,6 +57,7 @@ export default async function SonucPage({ params }: { params: Promise<{ id: stri
       aciklama: string | null;
       aciklama_gorsel: string | null;
       aciklama_bloklar: unknown;
+      aciklama_kitap?: unknown;
       ders: string | null;
       konu: string | null;
       alt_konu: string | null;
@@ -77,6 +79,7 @@ export default async function SonucPage({ params }: { params: Promise<{ id: stri
       aciklama: soru?.aciklama ?? null,
       aciklamaGorsel: soru?.aciklama_gorsel ? (baglantilar.get(soru.aciklama_gorsel) ?? null) : null,
       aciklamaBloklar: bloklariHazirla(soru?.aciklama_bloklar, baglantilar),
+      aciklamaKitap: kitabiHazirla(soru?.aciklama_kitap, baglantilar),
       ders: soru?.ders ?? null,
       konu: soru?.konu ?? null,
       altKonu: soru?.alt_konu ?? null,

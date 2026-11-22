@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import CozumEkrani, { type CozumSorusu } from "@/components/CozumEkrani";
-import { blokYollari, bloklariHazirla, gorselBaglantilari } from "@/lib/aciklamaGorsel";
+import { blokYollari, bloklariHazirla, gorselBaglantilari, kitabiHazirla, kitapYollari } from "@/lib/aciklamaGorsel";
 import { oturumKullanicisi, sunucuIstemcisi } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
   // Soru bankası modunda (kişisel çalışma) anında geri bildirim için önceden gönderilir;
   // arayüz cevap verilene kadar göstermez. Puanlama yine sunucuda yapılır.
   const alanlar = deneme.anlik
-    ? "numara, metin, secenekler, ders, konu, vaka_metni, soru_gorsel, soru_kitap_gorsel, dogru_cevap, aciklama, aciklama_gorsel, aciklama_bloklar"
+    ? "numara, metin, secenekler, ders, konu, vaka_metni, soru_gorsel, soru_kitap_gorsel, dogru_cevap, aciklama, aciklama_gorsel, aciklama_bloklar, aciklama_kitap"
     : "numara, metin, secenekler, ders, konu, vaka_metni, soru_gorsel, soru_kitap_gorsel";
 
   const { data: satirlar } = await supabase
@@ -44,8 +44,13 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
         soru_kitap_gorsel?: string | null;
         aciklama_gorsel?: string | null;
         aciklama_bloklar?: unknown;
+        aciklama_kitap?: unknown;
       };
-      return [q?.soru_gorsel, q?.soru_kitap_gorsel, ...(deneme.anlik ? [q?.aciklama_gorsel, ...blokYollari(q?.aciklama_bloklar)] : [])];
+      return [
+        q?.soru_gorsel,
+        q?.soru_kitap_gorsel,
+        ...(deneme.anlik ? [q?.aciklama_gorsel, ...blokYollari(q?.aciklama_bloklar), ...kitapYollari(q?.aciklama_kitap)] : []),
+      ];
     }),
   );
 
@@ -63,12 +68,14 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
       aciklama?: string | null;
       aciklama_gorsel?: string | null;
       aciklama_bloklar?: unknown;
+      aciklama_kitap?: unknown;
     };
+    const kitap = kitabiHazirla(soru?.aciklama_kitap, baglantilar);
     const bloklar = bloklariHazirla(soru?.aciklama_bloklar, baglantilar);
     const gorsel = soru?.aciklama_gorsel ? (baglantilar.get(soru.aciklama_gorsel) ?? null) : null;
     const acik = Boolean(deneme.anlik && (s.isaretlenen || s.aciklama_bakildi));
     const anahtar = deneme.anlik
-      ? { dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null, aciklamaGorsel: gorsel, aciklamaBloklar: bloklar }
+      ? { dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null, aciklamaGorsel: gorsel, aciklamaBloklar: bloklar, aciklamaKitap: kitap }
       : null;
     return {
       cevapId: s.id,
@@ -85,7 +92,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
       soruGorsel: soru?.soru_gorsel ? (baglantilar.get(soru.soru_gorsel) ?? null) : null,
       kitapGorsel: soru?.soru_kitap_gorsel ? (baglantilar.get(soru.soru_kitap_gorsel) ?? null) : null,
       sonuc: acik
-        ? { dogru: s.dogru, dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null, aciklamaGorsel: gorsel, aciklamaBloklar: bloklar }
+        ? { dogru: s.dogru, dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null, aciklamaGorsel: gorsel, aciklamaBloklar: bloklar, aciklamaKitap: kitap }
         : null,
       anahtar,
       eminDegil: Boolean(s.emin_degil),

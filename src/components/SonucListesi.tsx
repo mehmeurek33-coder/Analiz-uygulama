@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import AciklamaKutusu, { type AciklamaBlogu } from "@/components/AciklamaKutusu";
+import AciklamaKutusu, { type AciklamaBlogu, type KitapParcasi } from "@/components/AciklamaKutusu";
 import SoruDuzelt from "@/components/SoruDuzelt";
 import HataBildir from "@/components/HataBildir";
 import SoruKoku from "@/components/SoruKoku";
@@ -25,6 +25,7 @@ export type SonucSatiri = {
   aciklama: string | null;
   aciklamaGorsel?: string | null;
   aciklamaBloklar?: AciklamaBlogu[] | null;
+  aciklamaKitap?: KitapParcasi[] | null;
   ders: string | null;
   konu: string | null;
   altKonu: string | null;
@@ -169,9 +170,9 @@ export default function SonucListesi({ satirlar }: { satirlar: SonucSatiri[] }) 
                 />
               </div>
 
-              {(s.aciklama || s.aciklamaGorsel || s.aciklamaBloklar?.length) && (
+              {(s.aciklama || s.aciklamaGorsel || s.aciklamaBloklar?.length || s.aciklamaKitap?.length) && (
                 <div className="mt-3">
-                  <AciklamaKutusu metin={s.aciklama} gorsel={s.aciklamaGorsel} bloklar={s.aciklamaBloklar} />
+                  <AciklamaKutusu metin={s.aciklama} gorsel={s.aciklamaGorsel} bloklar={s.aciklamaBloklar} kitap={s.aciklamaKitap} />
                 </div>
               )}
 

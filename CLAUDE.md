@@ -266,6 +266,9 @@ Raporlarken:
   "Metin olarak göster" ile metne geçilir (görüntü açılmazsa kendiliğinden metne düşer). Üretim: `scripts/ocr/soru_goruntu.py
   <D> <konum.json> <çıktı>` (konum: yeni_baski satırları `bas`..`sik_son`; son şıkkın alt satırı, boş piksel satırından
   kesim, `ust_px` elle). Kırpıntı denetimi: üstte numara, altta E, içinde "Doğru cevap" yok; pilotta hepsine gözle bakıldı.
+  Açıklama da kitaptan (göç 17): `sorular.aciklama_kitap` = [{yol,w,h}] sütun parçaları (`soru_goruntu.py --aciklama`,
+  B2 `tts-mikrobiyoloji/kitap/<id>-kN.webp`); varsa açıklama bunlarla, "Metin olarak göster" ile blok/metin.
+  Blok görselleri `gorsel_kirp.py` ile kenarları kırpılmış (22.11, HATALAR B45; önceki bloklar scratchpad `duzen/bloklar_yedek.json`).
   Pilot: TTS Mikro bölüm 01, 03, 04 (29 soru). Konum kaynakları: scratchpad `yeni/yapi.json` (eski_id = soru id),
   `deney/kayip_konum.json`, `yeni/ekle/yeni_harita.json` (yeni-<aday>). Kalem işaretli TTS Farmakoloji'de dikkat.
 - **Yanlışlarım (tekrar listesi, aralıklı tekrar):** hata yapılan sorular + doğru olsa da "emin değilim"

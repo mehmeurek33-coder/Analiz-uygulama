@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import AciklamaKutusu, { type AciklamaBlogu } from "@/components/AciklamaKutusu";
+import AciklamaKutusu, { type AciklamaBlogu, type KitapParcasi } from "@/components/AciklamaKutusu";
 import SoruKoku from "@/components/SoruKoku";
 import Gorsel from "@/components/Gorsel";
 import HataBildir from "@/components/HataBildir";
@@ -16,6 +16,7 @@ export type Sonuc = {
   aciklamaGorsel?: string | null;
   /** Metin + şekil/tablo blokları */
   aciklamaBloklar?: AciklamaBlogu[] | null;
+  aciklamaKitap?: KitapParcasi[] | null;
 };
 
 export type CozumSorusu = {
@@ -43,6 +44,7 @@ export type CozumSorusu = {
     aciklama: string | null;
     aciklamaGorsel?: string | null;
     aciklamaBloklar?: AciklamaBlogu[] | null;
+    aciklamaKitap?: KitapParcasi[] | null;
   } | null;
   /** "Emin değilim" işareti: doğru olsa da tekrar listesine girer */
   eminDegil?: boolean;
@@ -158,6 +160,7 @@ export default function CozumEkrani({
         aciklama: soru.anahtar!.aciklama,
         aciklamaGorsel: soru.anahtar!.aciklamaGorsel,
         aciklamaBloklar: soru.anahtar!.aciklamaBloklar,
+        aciklamaKitap: soru.anahtar!.aciklamaKitap,
       },
     }));
     setAciklamaAcik((a) => ({ ...a, [id]: true }));
@@ -216,6 +219,7 @@ export default function CozumEkrani({
           aciklama: onceden.aciklama,
           aciklamaGorsel: onceden.aciklamaGorsel,
           aciklamaBloklar: onceden.aciklamaBloklar,
+          aciklamaKitap: onceden.aciklamaKitap,
         },
       }));
       setAciklamaAcik((a) => ({ ...a, [id]: dogru === false }));
@@ -534,7 +538,7 @@ export default function CozumEkrani({
               <div className="mt-3" id={`aciklama-${soru.soruId}`} style={{ overflowAnchor: "none" }}>
                 {acik ? (
                   <>
-                    <AciklamaKutusu metin={r.aciklama} gorsel={r.aciklamaGorsel} bloklar={r.aciklamaBloklar} />
+                    <AciklamaKutusu metin={r.aciklama} gorsel={r.aciklamaGorsel} bloklar={r.aciklamaBloklar} kitap={r.aciklamaKitap} />
                     {/* Gizle düğmesi açıklamanın altında: okuyup bitirince hemen kapatılsın */}
                     <button
                       type="button"
