@@ -212,6 +212,7 @@ TELIF_SON = re.compile(r"^\W*TUS-?DATA\W*$")
 UST_BILGI = re.compile(r"TÜM\s*TUS\s*SORULARI|^\W*\d{1,3}\W*$")
 SIK = re.compile(r"^[\s\W]{0,3}[A-E][)\]]\s")
 SIK_SATIR = re.compile(r"^[\s\W]{0,3}(?:[A-E8G€][)\]}]|A[jJ]\)?)")  # "AJ)", "G)"=C, "€)"=E OCR bozulmaları
+SIK_GEVSEK = re.compile(r"^[\s\W]{0,3}[A-E8G€£&][A-Za-z]{0,2}\s?[)\]};:]|^[\s\W]{0,3}[A-E]\s")  # bozuk şık başı
 NUMARA = re.compile(r"^[\s\W_]{0,3}\d{1,3}\s?[.,](\s|$|(?=[A-ZÇĞİÖŞÜ]))")  # "20.Bir ..." boşluksuz da
 ETIKET = re.compile(r"\((İlkbahar|Sonbahar)\s*[-–]?\s*\d{2,4}")  # kökteki sınav etiketi parantezli; açıklamadaki anış değil
 
@@ -308,8 +309,17 @@ def dolu(sayfa, sut, ust, alt, merkez):
 def aciklama_kes(k):
     parcalar, sorun = [], []  # (sayfa, sut, ust, alt, merkezler)
     y = k.get("ac_bas") or k["sik_son"] + 1  # ac_bas: açıklama "Doğru cevap" satırından SONRA gelen soru (elle)
-    while not k.get("ac_bas") and y < k["bitis"] and devam_mi(S[y - 1], S[y], S[y - 2]):  # son şıkkın taşan satırı soruya ait
+    while not k.get("ac_bas") and y < k["bitis"] and (
+            devam_mi(S[y - 1], S[y], S[y - 2])  # son şıkkın taşan satırı soruya ait
+            or (SIK_GEVSEK.match(S[y][4]) and S[y][:2] == S[y - 1][:2] and S[y][2] - S[y - 1][3] <= 14)):  # kaçan şık
         y += 1
+    if not k.get("ac_bas"):  # bozuk D satırı + temiz E satırı açıklamanın başında kaldıysa
+        for j in range(y, min(y + 3, k["bitis"])):
+            if S[j][:2] != S[y - 1][:2] or S[j][2] - S[j - 1][3] > 14:
+                break
+            if re.match(r"^[\s\W]{0,3}E\s?[)\]]", S[j][4]):
+                y = j + 1
+                break
     bitis = k["bitis"]
     atla = {i for a, b in k.get("atla", []) for i in range(a, b + 1)}  # elle: açıklamadan atılacak satır aralıkları
     ac_bas = k.get("ac_bas")
@@ -360,6 +370,22 @@ def aciklama_kes(k):
                 bitis = i  # ac_bas modunda bitis dışlayıcı
             sorun.append("bilgi: açıklama sonraki soruda kesildi (kural C)")
             break
+    # Kural D: açıklama aralığında "şöyle de sorulabilirdi" kutusu (varyant işareti kaçmış): başlığından kendi cevap
+    # satırına kadar atla
+    i = y
+    while i < bitis:
+        benzer = re.search(r"BENZER", S[i][4]) and not S[i][5]
+        if (re.search(r"sorulabilirdi", S[i][4]) or benzer) and not S[i][5]:
+            if benzer:  # başlık okunmamış varyant: kökü 4 satır yukarıda başlar (açıklama başındaysa oradan)
+                i = y if i - y <= 5 else i - 3
+            j = i
+            while j < bitis and not yb.CEVAP.search(S[j][4]):
+                j += 1
+            if j < bitis:
+                atla.update(range(i, j + 1))
+                sorun.append("bilgi: varyant kutusu atlandı (kural D)")
+                i = j
+        i += 1
     son_cevap = S[bitis]
     # cevap satırı ("Doğru cevap: X") da açıklamaya dahil (kullanıcı isteği 22.11: okurken anahtarı da denetler)
     for dz in aciklama_satirlari(y, bitis + (0 if ac_bas else 1), None if ac_bas else son_cevap, atla):
@@ -504,6 +530,20 @@ for k in json.load(open(KONUM, encoding="utf-8")):
         numara = [i for i in range(bas, ilk_sik) if NUMARA.match(S[i][4])]
         if numara:
             bas = numara[0]
+    # konum son şıklardan önce bitmişse (bozuk okunan "DMHlacın", "€)" = C): şık satırları arasındaki tipik aralıkla
+    # süren sonraki satırlar da şıktır (açıklama daha büyük boşlukla başlar; varyant/cevap satırında durulur)
+    araliklar = sorted(S[i + 1][2] - S[i][3] for i in range(bas, son) if S[i + 1][:2] == S[i][:2] and S[i + 1][2] > S[i][3] - 15)
+    tipik = araliklar[len(araliklar) // 2] if araliklar else 10
+    while (son + 1 < len(S) and S[son + 1][:2] == S[son][:2] and not S[son + 1][5] and not yb.CEVAP.search(S[son + 1][4])
+           and S[son + 1][2] - S[son][3] <= max(14, tipik * 1.6) and SIK_GEVSEK.match(S[son + 1][4])):
+        son += 1
+    # E şıkkı 1-3 satır aşağıda temiz okunmuşsa (aradaki D satırı bozuk) aralığı ona kadar uzat
+    for j in range(son + 1, min(son + 4, len(S))):
+        if S[j][:2] != S[son][:2] or S[j][5] or yb.CEVAP.search(S[j][4]) or S[j][2] - S[j - 1][3] > max(14, tipik * 1.6):
+            break
+        if re.match(r"^[\s\W]{0,3}E\s?[)\]]", S[j][4]):
+            son = j
+            break
     # konum E şıkkından sonrasını da içeriyorsa (açıklama ilk paragrafı: cevabı ele verir) E satırında kes;
     # E satırından sonraki satırlar yalnızca şıkkın gerçek devamıysa (devam_mi) kalır
     e_satir = [i for i in range(bas, son + 1) if re.search(r"(^|\s)[E€£&]\s?[)\]}]", S[i][4])]
