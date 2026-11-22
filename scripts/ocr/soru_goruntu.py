@@ -42,9 +42,36 @@ ACIK = re.compile(r"^[a-zçğıöşü(]")
 _resim = {}
 
 
+def egiklik(im):
+    """Taramanın eğikliği (derece): satır izdüşümünün varyansını en büyüten döndürme açısı (±2°)."""
+    kucuk = im.resize((im.width // 3, im.height // 3))
+    en = (None, 0.0)
+    for d in np.arange(-2.0, 2.01, 0.1):
+        r = np.asarray(kucuk.rotate(float(d), resample=Image.BILINEAR, fillcolor=255))
+        v = float(((r < 128).sum(axis=1)).var())
+        if en[0] is None or v > en[0]:
+            en = (v, float(d))
+    # ince ayar
+    for d in np.arange(en[1] - 0.09, en[1] + 0.091, 0.03):
+        r = np.asarray(kucuk.rotate(float(d), resample=Image.BILINEAR, fillcolor=255))
+        v = float(((r < 128).sum(axis=1)).var())
+        if v > en[0]:
+            en = (v, float(d))
+    return en[1]
+
+
+EGIK = {}
+
+
 def resim(sayfa, sut):
+    """Sütun görüntüsü, eğikliği düzeltilmiş (merkez etrafında döndürme: satırların dikey konumu korunur)."""
     if (sayfa, sut) not in _resim:
-        _resim[(sayfa, sut)] = np.asarray(Image.open(f"{D}/ocr/png/p{sayfa:03d}-{sut}.png").convert("L"))
+        im = Image.open(f"{D}/ocr/png/p{sayfa:03d}-{sut}.png").convert("L")
+        d = egiklik(im)
+        EGIK[(sayfa, sut)] = round(d, 2)
+        if abs(d) >= 0.25:
+            im = im.rotate(d, resample=Image.BICUBIC, fillcolor=255)
+        _resim[(sayfa, sut)] = np.asarray(im)
     return _resim[(sayfa, sut)]
 
 
@@ -172,14 +199,14 @@ def en_uzun_koyu(koyu):
 
 def kenar_bandi(dizi, y0, y1, sag):
     """Parçanın sütun aralığına dayanan (iki sütuna yayılan tablo/şekil) satır bandı; yoksa None.
-    Kenarda mürekkepli satırların ≤15 px boşlukla süren en uzun koşusu ≥60 px olmalı (kenara değen tek tük harf sayılmaz)."""
+    Kenarda mürekkepli (gri zemin dahil) satırların ≤40 px boşlukla süren en uzun koşusu ≥60 px olmalı (kenara değen tek tük harf sayılmaz)."""
     kenar = dizi[y0:y1, -4:] if sag else dizi[y0:y1, :4]
-    satir = np.where((kenar < 140).sum(axis=1) > 0)[0]
+    satir = np.where((kenar < 215).sum(axis=1) > 0)[0]  # gri hücre zemini de tablonun parçası
     if len(satir) == 0:
         return None
     en, bas, onceki = None, satir[0], satir[0]
     for r in list(satir[1:]) + [10**9]:
-        if r - onceki > 15:
+        if r - onceki > 40:
             if en is None or onceki - bas > en[1] - en[0]:
                 en = (bas, onceki)
             bas = r
@@ -211,39 +238,44 @@ def aciklama_kes(k):
             alt = bos_satir(dizi, min(sonraki) - 2, a, -1) + 1
         else:
             alt = bos_kosu(dizi, a, dizi.shape[0], 1) + 1
-        parcalar.append([sayfa, sut, max(0, ust), min(dizi.shape[0], max(alt, a))])
+        parcalar.append([sayfa, sut, max(0, ust), min(dizi.shape[0], max(alt, a)), [(S[i][2] + S[i][3]) // 2 for i in dz]])
         for i in dz:
             if SIK.match(S[i][4]) or ETIKET.search(S[i][4]) or yb.CEVAP.search(S[i][4]):
                 sorun.append("baska_soru_izi: " + S[i][4][:40])
     # iki sütuna yayılan tablo/şekil: sol parçada sağ kenara dayanan bant -> o bant L+R yan yana, sağ parçadan çıkar
     cikti = []
     genis = []
-    for sayfa, sut, ust, alt in parcalar:
+    for sayfa, sut, ust, alt, merkez in parcalar:
         if sut == "L":
             bant = kenar_bandi(resim(sayfa, "L"), ust, alt, True)
+            # aynı bant sağ sütunun sol kenarında da görünür (tablonun öbür yarısı): ikisinin birleşimi
+            if bant and os.path.exists(f"{D}/ocr/png/p{sayfa:03d}-R.png"):
+                sag = kenar_bandi(resim(sayfa, "R"), max(0, bant[0] - 400), bant[1] + 400, False)
+                if sag and sag[0] < bant[1] + 40 and sag[1] > bant[0] - 40:
+                    bant = (max(ust, min(bant[0], sag[0])), min(alt, max(bant[1], sag[1])))
             if bant:
                 b0 = bos_satir(resim(sayfa, "L"), bant[0], ust, -1)
                 b1 = bos_satir(resim(sayfa, "L"), bant[1], alt, 1) + 1
                 genis.append((sayfa, b0, b1))
                 if b0 - ust > 20:
-                    cikti.append(("tek", sayfa, "L", ust, b0))
-                cikti.append(("genis", sayfa, None, b0, b1))
+                    cikti.append(("tek", sayfa, "L", ust, b0, merkez))
+                cikti.append(("genis", sayfa, None, b0, b1, []))
                 if alt - b1 > 20:
-                    cikti.append(("tek", sayfa, "L", b1, alt))
+                    cikti.append(("tek", sayfa, "L", b1, alt, merkez))
                 sorun.append("bilgi: iki sütuna yayılan bant birleştirildi")
                 continue
-        cikti.append(("tek", sayfa, sut, ust, alt))
-    # sağ sütun parçalarından genis bantları çıkar
+        cikti.append(("tek", sayfa, sut, ust, alt, merkez))
+    # sağ sütun parçalarından genis bantları çıkar; bölünen parçadan yalnız içinde satır kalanlar tutulur
     son = []
-    for tur, sayfa, sut, ust, alt in cikti:
-        if tur == "tek" and sut == "R":
+    for tur, sayfa, sut, ust, alt, merkez in cikti:
+        if tur == "tek":
             for gs, b0, b1 in genis:
-                if gs == sayfa and b0 < alt and b1 > ust:
-                    if b0 - ust > 20:
+                if gs == sayfa and sut == "R" and b0 < alt and b1 > ust:
+                    if b0 - ust > 20 and any(ust <= m < b0 for m in merkez):
                         son.append(("tek", sayfa, "R", ust, b0))
                     ust = max(ust, b1)
-            if alt - ust > 20:
-                son.append(("tek", sayfa, "R", ust, alt))
+            if alt - ust > 20 and any(ust <= m < alt for m in merkez):
+                son.append(("tek", sayfa, sut, ust, alt))
         else:
             son.append((tur, sayfa, sut, ust, alt))
     resimler = []
@@ -275,6 +307,9 @@ def aciklama_kes(k):
                     ic = koyu[satir, hi + 10: hi + 80] if yon == 1 else koyu[satir, max(0, lo - 80): max(0, lo - 10)]
                     if satir.sum() and ic.size and ic.mean() < 0.3:
                         d[:, max(0, lo - 6):hi + 7] = 255
+            # yalnızca sekme kırıntısı / boşluk kalan ince parça atılır
+            if d.shape[0] < 80 and int((d < 140).sum()) < d.shape[1] * 3:
+                continue
             resimler.append(Image.fromarray(d))
     return resimler, sorun
 
