@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   try {
     const ad = new URL(request.url).searchParams.get("ad");
     if (ad) {
-      const url = (await b2Baglantilari([ad])).get(ad);
+      const url = (await b2Baglantilari([ad], true)).get(ad);
       return NextResponse.json({ url });
     }
     const dosyalar = (await b2Listele()).filter((f: { ad: string }) => !/\.(webp|png|jpe?g)$/i.test(f.ad));

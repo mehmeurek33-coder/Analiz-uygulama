@@ -15,5 +15,5 @@ export async function GET(request: Request) {
   }
   const url = (await gorselBaglantilari([yol])).get(yol);
   if (!url) return NextResponse.json({ hata: "Bağlantı üretilemedi." }, { status: 502 });
-  return NextResponse.redirect(url, { status: 302, headers: { "Cache-Control": "no-store" } });
+  return NextResponse.redirect(new URL(url, request.url), { status: 302, headers: { "Cache-Control": "no-store" } });
 }

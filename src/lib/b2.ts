@@ -70,7 +70,7 @@ async function yetkilen(): Promise<Yetki> {
  * önbellekte: verilen her bağlantı en az 24 saat çalışır (eskiden 6/5 saatti; önbelleğin sonunda
  * açılan sayfanın görselleri ~1 saat sonra yüklenmiyordu — HATALAR.md E7).
  */
-export async function b2Baglantilari(yollar: string[]): Promise<Map<string, string>> {
+export async function b2Baglantilari(yollar: string[], mutlak = false): Promise<Map<string, string>> {
   const y = await yetkilen();
   if (!indirme || indirme.bitis < Date.now()) {
     const c = await fetch(`${y.apiUrl}/b2api/v3/b2_get_download_authorization`, {
@@ -84,7 +84,11 @@ export async function b2Baglantilari(yollar: string[]): Promise<Map<string, stri
   const harita = new Map<string, string>();
   for (const yol of yollar) {
     const ad = yol.split("/").map(encodeURIComponent).join("/");
-    harita.set(yol, `${y.downloadUrl}/file/${encodeURIComponent(y.bucketName)}/${ad}?Authorization=${indirme.token}`);
+    // Tarayıcıya giden bağlantılar aynı alan adından (/b2/...): operatör B2 indirme adresini (fNNN.backblazeb2.com)
+    // engelleyince görseller açılmıyordu (HATALAR.md E8). /b2/* Cloudflare Worker'da doğrudan B2'ye, Vercel'de
+    // next.config rewrite ile B2'ye iletilir. `mutlak`: sunucu/araç kullanımı için doğrudan B2 adresi.
+    const yolKismi = `/file/${encodeURIComponent(y.bucketName)}/${ad}?Authorization=${indirme.token}`;
+    harita.set(yol, mutlak ? `${y.downloadUrl}${yolKismi}` : `/b2${yolKismi}`);
   }
   return harita;
 }
