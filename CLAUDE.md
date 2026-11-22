@@ -231,6 +231,8 @@ Raporlarken:
   API anahtarı ortamda kayıtlı (api.cloudflare.com, "Edit Cloudflare Workers"):
   `PUT /client/v4/accounts/<id>/workers/scripts/tusanaliz` (multipart, `main_module`). workers.dev de engellenirse
   kalıcı çözüm kendi alan adı (Cloudflare'den alınıp Vercel'e bağlanır). Kullanıcıya link verirken bu adresi kullan.
+  Görseller de bu adresten: `/b2/file/<depo>/<yol>` (Worker doğrudan `f003.backblazeb2.com`'a, Vercel'de `next.config.ts`
+  rewrite). B2 adresi tarayıcıya hiç verilmez (operatör engelledi, HATALAR E8). Worker değişirse API ile yeniden yükle.
 - **Yüklü kitap:** TUSDATA Tüm TUS Soruları – Mikrobiyoloji, **36. baskıya güncellendi** (35. baskı
   soruları yerinde güncellendi, id'ler aynı; 33 yeni 2025 sorusu eklendi, `numara` boş): 72 bölüm, 1525 soru,
   1471'inde açıklama, 1430'unda blok açıklama (`aciklama_bloklar`). İlk eşleştirmede bulunamayan 66 eski
