@@ -516,6 +516,9 @@ for k in json.load(open(KONUM, encoding="utf-8")):
     # (önceki açıklamanın tablosu) soruya ait değildir
     def yukarida(i):
         return S[i][:2] == S[bas][:2] and S[i][2] < S[bas][2] - 5
+    # başlangıç satırı sıra dışıysa (şeklin altındaki etiket: "8"; sonraki satırlar ondan çok yukarıda) atla
+    while bas + 1 < son and S[bas + 1][:2] == S[bas][:2] and S[bas][2] > S[bas + 1][2] + 50 and not NUMARA.match(S[bas][4]):
+        bas += 1
     cevaplar = [i for i in range(bas, son + 1) if yb.CEVAP.search(S[i][4]) and not yukarida(i)]
     if cevaplar and NUMARA.match(S[bas][4]):
         # baş doğru (numara satırı), son yanlış: iki soru birleşmiş -> ilk cevap satırından önceki son şık satırı
@@ -564,6 +567,8 @@ for k in json.load(open(KONUM, encoding="utf-8")):
             continue
         if s[:2] == S[bas][:2] and s[2] < ust_sinir:  # numaranın üstündeki sıra dışı satır
             continue
+        if UST_BILGI.search(s[4]) and i != bas:  # sayfa üst bilgisi ("144 ◄ TÜM TUS SORULARI")
+            continue
         g = gruplar.setdefault((s[0], s[1]), [10**9, 0])
         g[0], g[1] = min(g[0], s[2]), max(g[1], s[3])
     parcalar, kenar, yakinlar = [], [], []
@@ -578,6 +583,11 @@ for k in json.load(open(KONUM, encoding="utf-8")):
         onceki = [S[j][3] for j in range(max(0, bas - 2), bas) if tuple(S[j][:2]) == (sayfa, sut)]
         usinir = max([u - PAY_UST - 20] + [b - 12 for b in onceki])
         ust = bos_satir(dizi, u + 4, usinir, -1)  # boş satırdan başla (üstteki satırın ucu girmesin)
+        if not parcalar and not NUMARA.match(S[bas][4]):
+            # numarasız başlangıç (şekil etiketi): şeklin üstü OCR'a girmemiş olabilir -> uzun boşluğa kadar yukarı,
+            # önceki satırın altını geçmeden
+            alt_sinir = max([b + 6 for b in onceki if b + 6 < u] + [0])
+            ust = max(alt_sinir, bos_kosu(dizi, u, alt_sinir, -1, uzun=30))
         if k.get("ust_px") is not None and not parcalar:  # OCR'ın okumadığı numara/şekil üstü (elle)
             ust = k["ust_px"]
         parca = im.crop((0, max(0, ust), im.width, min(im.height, alt)))
@@ -620,6 +630,8 @@ for k in json.load(open(KONUM, encoding="utf-8")):
         sorun.append(f"bilgi: son şık {son - sik_son_ilk} satır uzatıldı")
     if len(parcalar) > 1:
         sorun.append(f"{len(parcalar)}_parca")
+    if h < 60:
+        sorun.append("bos_kirpinti")
     denetim.append({"anahtar": k["anahtar"], "parca": len(parcalar), "boyut": [w, h], "sorun": sorun, "bas": bas, "son": son})
 json.dump(denetim, open(f"{CIKIS}/denetim.json", "w"), ensure_ascii=False, indent=0)
 print(json.dumps({"soru": len(denetim), "sorunlu": [d for d in denetim if d["sorun"]]}, ensure_ascii=False))
