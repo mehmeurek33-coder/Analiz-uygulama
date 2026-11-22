@@ -7,7 +7,8 @@ Kullanim: python3 -I soru_goruntu.py <D> <konum.json> <cikti_dizini> [--aciklama
     "bitis" = cevap satırı). Telif kutusu ("ASLA HELAL ETMİYORUZ" … "TUSDATA"), sayfa üst bilgisi ("TÜM TUS SORULARI"),
     bölüm başlık bandı ve "şöyle de sorulabilirdi" kutusu atlanır; kalan satırlar sütun sütun, araya giren atlanmış
     satırda bölünerek kesilir. Denetim: içinde şık satırı / sınav etiketi / "Doğru cevap" kalan parça (başka soru sızmış).
-  konum.json: [{"anahtar": "<soru_id>", "bas": satir, "sik_son": satir, "ust_px": (isteğe bağlı) ilk parçanın üstü}, ...]
+  konum.json: [{"anahtar": "<soru_id>", "bas": satir, "sik_son": satir, "ust_px": (isteğe bağlı) ilk parçanın üstü,
+               "bitis": cevap satırı, "ac_bas": (isteğe bağlı) açıklama cevap satırından sonra başlıyorsa ilk satırı}, ...]
               (satir: yeni_baski satirlar indeksi; şekille başlayan soruda numara OCR'a girmeyebilir → ust_px)
 Cikti: <cikti>/<anahtar>.webp (tam çözünürlük, gri, q88) + <cikti>/denetim.json
   (--aciklama: <anahtar>-k1.webp, -k2.webp … her parça ayrı; denetim.json'da "dosyalar": [{ad, w, h}])
@@ -217,8 +218,8 @@ def kenar_bandi(dizi, y0, y1, sag):
 
 
 def aciklama_kes(k):
-    y = k["sik_son"] + 1
-    while y < k["bitis"] and devam_mi(S[y - 1], S[y]):  # son şıkkın taşan satırı soruya ait
+    y = k.get("ac_bas") or k["sik_son"] + 1  # ac_bas: açıklama "Doğru cevap" satırından SONRA gelen soru (elle)
+    while not k.get("ac_bas") and y < k["bitis"] and devam_mi(S[y - 1], S[y]):  # son şıkkın taşan satırı soruya ait
         y += 1
     parcalar, sorun = [], []  # (sayfa, sut, ust, alt)
     for dz in aciklama_satirlari(y, k["bitis"]):
