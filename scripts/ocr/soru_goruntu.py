@@ -8,7 +8,8 @@ Kullanim: python3 -I soru_goruntu.py <D> <konum.json> <cikti_dizini> [--aciklama
     bölüm başlık bandı ve "şöyle de sorulabilirdi" kutusu atlanır; kalan satırlar sütun sütun, araya giren atlanmış
     satırda bölünerek kesilir. Denetim: içinde şık satırı / sınav etiketi / "Doğru cevap" kalan parça (başka soru sızmış).
   konum.json: [{"anahtar": "<soru_id>", "bas": satir, "sik_son": satir, "ust_px": (isteğe bağlı) ilk parçanın üstü,
-               "bitis": cevap satırı, "ac_bas": (isteğe bağlı) açıklama cevap satırından sonra başlıyorsa ilk satırı}, ...]
+               "bitis": cevap satırı, "ac_bas": (isteğe bağlı) açıklama cevap satırından sonra başlıyorsa ilk satırı,
+               "atla": [[a, b], ...] (isteğe bağlı) açıklamadan atılacak satır aralıkları (tanınmamış varyant kutusu vb.)}, ...]
               (satir: yeni_baski satirlar indeksi; şekille başlayan soruda numara OCR'a girmeyebilir → ust_px)
 Cikti: <cikti>/<anahtar>.webp (tam çözünürlük, gri, q88) + <cikti>/denetim.json
   (--aciklama: <anahtar>-k1.webp, -k2.webp … her parça ayrı; denetim.json'da "dosyalar": [{ad, w, h}])
@@ -37,6 +38,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import yeni_baski as yb  # noqa: E402
 
 PAY_UST, PAY_ALT, ARA = 14, 16, 18
+# Dar sütun görüntüleri bu genişliğe beyazla ortalanır: uygulamada tam genişlikte gösterilince yazı boyu sorudan soruya
+# değişmesin (dar kırpıntı büyük, geniş kırpıntı küçük görünüyordu). Kitabın tipik sütun genişliği (px).
+HEDEF_GEN = int(os.environ.get("HEDEF_GEN", "1220"))
+
+
+def genislet(im):
+    if im.width >= HEDEF_GEN:
+        return im
+    c = Image.new("L", (HEDEF_GEN, im.height), 255)
+    c.paste(im, ((HEDEF_GEN - im.width) // 2, 0))
+    return c
 ACIK = re.compile(r"^[a-zçğıöşü(]")
 
 
@@ -84,13 +96,23 @@ def sol(satir):
     return int(sutun[0]) if len(sutun) else 10**6
 
 
-def devam_mi(son_satir, sonraki):
+def devam_mi(son_satir, sonraki, onceki=None):
     """Son şıkkın alt satıra taşan devamı mı? Aynı sütun, hemen altta ve küçük harfle başlıyor ya da
     şık metninin hizasında girintili (açıklama sütun kenarından başlar, şık devamı 'E)' harfinin sağından)."""
     if sonraki[:2] != son_satir[:2] or sonraki[2] - son_satir[3] > 30 or yb.CEVAP.search(sonraki[4]):
         return False
+    # satır aralığı şıklar arasındakinden belirgin büyükse (açıklama paragrafı başlıyor) devam değildir
+    if onceki is not None and onceki[:2] == son_satir[:2]:
+        if sonraki[2] - son_satir[3] > max(14, son_satir[2] - onceki[3] + 8):
+            return False
     if ACIK.match(sonraki[4].strip()):
         return True
+    # son okunan şık D) ise ve hemen altındaki satır "E" ile başlıyorsa (E şıkkı bozuk okunmuş: "EV Acnr...") o da şıktır
+    if re.match(r"^[\s\W]{0,3}D\s?[)\]]", son_satir[4]) and re.match(r"^[\s\W]{0,3}[E€£&]", sonraki[4]):
+        return True
+    harf = re.sub(r"[^A-Za-zÇĞİÖŞÜçğıöşü]", "", sonraki[4])
+    if len(harf) >= 6 and harf == harf.upper():  # büyük harfli başlık (açıklama kutusu başlığı) şık devamı değildir
+        return False
     return sol(sonraki) > sol(son_satir) + 25
 
 
@@ -139,7 +161,9 @@ TELIF_BAS = re.compile(r"HELAL\s*ET", re.I)
 TELIF_SON = re.compile(r"^\W*TUS-?DATA\W*$")
 UST_BILGI = re.compile(r"TÜM\s*TUS\s*SORULARI|^\W*\d{1,3}\W*$")
 SIK = re.compile(r"^[\s\W]{0,3}[A-E][)\]]\s")
-ETIKET = re.compile(r"(İlkbahar|Sonbahar)\s*[-–]?\s*\d{2,4}")
+SIK_SATIR = re.compile(r"^[\s\W]{0,3}[A-E8][)\]]")
+NUMARA = re.compile(r"^[\s\W_]{0,3}\d{1,3}\s?[.,](\s|$|(?=[A-ZÇĞİÖŞÜ]))")  # "20.Bir ..." boşluksuz da
+ETIKET = re.compile(r"\((İlkbahar|Sonbahar)\s*[-–]?\s*\d{2,4}")  # kökteki sınav etiketi parantezli; açıklamadaki anış değil
 
 
 def baslik_bandi(s):
@@ -149,11 +173,17 @@ def baslik_bandi(s):
     return s[2] < 400 and len(harf) >= 5 and harf == harf.upper() and len(t.split()) <= 4
 
 
-def aciklama_satirlari(bas, bitis):
-    """Açıklamada tutulacak satır dizileri (sütun değişince ya da atlanan satırda bölünür)."""
+def aciklama_satirlari(bas, bitis, cevap=None, atla_satir=()):
+    """Açıklamada tutulacak satır dizileri (sütun değişince ya da atlanan satırda bölünür). cevap: cevap satırı;
+    aynı sütunda ondan AŞAĞIDA duran satırlar (OCR sırası bozuk: sonraki sorunun başı) alınmaz."""
     diziler, cur, telif = [], [], False
     for i in range(bas, bitis):
         s = S[i]
+        if (cevap is not None and s[:2] == cevap[:2] and s[2] > cevap[2] + 5) or i in atla_satir:
+            if cur:
+                diziler.append(cur)
+            cur = []
+            continue
         if TELIF_BAS.search(s[4]):
             telif = True
         atla = telif or s[5] or UST_BILGI.search(s[4]) or baslik_bandi(s)
@@ -217,13 +247,72 @@ def kenar_bandi(dizi, y0, y1, sag):
     return y0 + int(en[0]), y0 + int(en[1]) + 1
 
 
+def dolu(sayfa, sut, ust, alt, merkez):
+    """Bölünmeden kalan parça tutulmaya değer mi: içinde metin satırı var ya da şekil kadar mürekkep (≥ 40 satır x genişlik %15)."""
+    if any(ust <= m < alt for m in merkez):
+        return True
+    d = resim(sayfa, sut)[ust:alt]
+    return alt - ust >= 80 and int((d < 140).sum()) > d.shape[1] * 0.15 * 40
+
+
 def aciklama_kes(k):
+    parcalar, sorun = [], []  # (sayfa, sut, ust, alt, merkezler)
     y = k.get("ac_bas") or k["sik_son"] + 1  # ac_bas: açıklama "Doğru cevap" satırından SONRA gelen soru (elle)
-    while not k.get("ac_bas") and y < k["bitis"] and devam_mi(S[y - 1], S[y]):  # son şıkkın taşan satırı soruya ait
+    while not k.get("ac_bas") and y < k["bitis"] and devam_mi(S[y - 1], S[y], S[y - 2]):  # son şıkkın taşan satırı soruya ait
         y += 1
-    parcalar, sorun = [], []  # (sayfa, sut, ust, alt)
+    bitis = k["bitis"]
+    atla = {i for a, b in k.get("atla", []) for i in range(a, b + 1)}  # elle: açıklamadan atılacak satır aralıkları
+    ac_bas = k.get("ac_bas")
+    if not ac_bas:
+        ara = [i for i in range(y, bitis) if not S[i][5]]
+        sikli = [i for i in ara if SIK_SATIR.match(S[i][4])]
+        sonraki_soru = None
+        def soru_basi(i, ust):
+            return NUMARA.match(S[i][4]) and any(SIK_SATIR.match(S[j][4]) for j in range(i + 1, min(i + 16, ust)))
+        if not ara:
+            # Kural A: cevap satırı şıkların hemen ardından, açıklama SONRA geliyor -> sonraki sorunun başına kadar
+            j = bitis + 1
+            while j < len(S) and j < bitis + 120 and not soru_basi(j, len(S)):
+                j += 1
+            # aradaki içeriğin kendi (varyant olmayan) cevap satırı varsa başka bir soruya/kutuya aittir: alma
+            kendi_cevap = any(yb.CEVAP.search(S[t][4]) and not S[t][5] for t in range(bitis + 1, j))
+            # özet/bilgi kutusu ile başlıyorsa (büyük harfli başlık) açıklama değildir: alma (eski metin açıklama kalır)
+            ilk = next((S[t] for t in range(bitis + 1, j) if not S[t][5]), None)
+            harf = re.sub(r"[^A-Za-zÇĞİÖŞÜçğıöşü]", "", ilk[4]) if ilk else ""
+            kutu = len(harf) >= 6 and harf == harf.upper()
+            ozet = any(re.search(r"Sorulabilecek|Önemli Bilgiler", S[t][4]) for t in range(bitis + 1, j))
+            if j > bitis + 1 and not kendi_cevap and not kutu and not ozet:
+                ac_bas, sonraki_soru = bitis + 1, j
+                sorun.append("bilgi: açıklama cevap satırından sonra (kural A)")
+        elif len(sikli) >= 3 and not any(yb.CEVAP.search(S[i][4]) for i in ara):
+            # Kural B: aradaki satırlar bir soru (şıklı) = tanınmamış varyant kutusu; asıl açıklama ve cevap ondan sonra
+            j = bitis + 1
+            while j < len(S) and j < bitis + 150 and not yb.CEVAP.search(S[j][4]) and not soru_basi(j, len(S)):
+                j += 1
+            if j < len(S) and yb.CEVAP.search(S[j][4]):
+                atla.update(range(y, bitis + 1))
+                y, bitis = bitis + 1, j
+                sorun.append("bilgi: tanınmamış varyant kutusu atlandı (kural B)")
+    if ac_bas:
+        y = ac_bas
+        if sonraki_soru if not k.get("ac_bas") else False:
+            bitis = sonraki_soru
+    # Kural C: aralıkta tam bir soru başlıyorsa (numara satırı + 6 satır içinde parantezli sınav etiketi + en az 3 şık)
+    # açıklama oradan önce biter (cevap satırı bozuk okunduğu için konum sonraki sorunun cevabına uzamış)
+    for i in range(y + 1, bitis):
+        if S[i][5] or i in atla or not NUMARA.match(S[i][4]):
+            continue
+        etiket = any(ETIKET.search(S[j][4]) for j in range(i, min(i + 7, bitis)))
+        siklar = sum(1 for j in range(i + 1, min(i + 18, bitis + 1)) if SIK_SATIR.match(S[j][4]))
+        if etiket and siklar >= 3:
+            bitis = i - 1
+            if ac_bas:
+                bitis = i  # ac_bas modunda bitis dışlayıcı
+            sorun.append("bilgi: açıklama sonraki soruda kesildi (kural C)")
+            break
+    son_cevap = S[bitis]
     # cevap satırı ("Doğru cevap: X") da açıklamaya dahil (kullanıcı isteği 22.11: okurken anahtarı da denetler)
-    for dz in aciklama_satirlari(y, k["bitis"] + (0 if k.get("ac_bas") else 1)):
+    for dz in aciklama_satirlari(y, bitis + (0 if ac_bas else 1), None if ac_bas else son_cevap, atla):
         sayfa, sut = S[dz[0]][0], S[dz[0]][1]
         dizi = resim(sayfa, sut)
         u = min(S[i][2] for i in dz)
@@ -242,29 +331,37 @@ def aciklama_kes(k):
             alt = bos_kosu(dizi, a, dizi.shape[0], 1) + 1
         parcalar.append([sayfa, sut, max(0, ust), min(dizi.shape[0], max(alt, a)), [(S[i][2] + S[i][3]) // 2 for i in dz]])
         for i in dz:
-            if i != k["bitis"] and (SIK.match(S[i][4]) or ETIKET.search(S[i][4]) or yb.CEVAP.search(S[i][4])):
+            if i != bitis and (SIK.match(S[i][4]) or ETIKET.search(S[i][4]) or yb.CEVAP.search(S[i][4])):
                 sorun.append("baska_soru_izi: " + S[i][4][:40])
     # iki sütuna yayılan tablo/şekil: sol parçada sağ kenara dayanan bant -> o bant L+R yan yana, sağ parçadan çıkar
     cikti = []
     genis = []
     for sayfa, sut, ust, alt, merkez in parcalar:
         if sut == "L":
-            bant = kenar_bandi(resim(sayfa, "L"), ust, alt, True)
-            # aynı bant sağ sütunun sol kenarında da görünür (tablonun öbür yarısı): ikisinin birleşimi
-            if bant and os.path.exists(f"{D}/ocr/png/p{sayfa:03d}-R.png"):
-                sag = kenar_bandi(resim(sayfa, "R"), max(0, bant[0] - 400), bant[1] + 400, False)
-                if sag and sag[0] < bant[1] + 40 and sag[1] > bant[0] - 40:
-                    bant = (max(ust, min(bant[0], sag[0])), min(alt, max(bant[1], sag[1])))
-            if bant:
-                b0 = bos_satir(resim(sayfa, "L"), bant[0], ust, -1)
+            # parçada birden çok iki sütunlu tablo olabilir: sırayla hepsini bul
+            cur, buldu = ust, False
+            while alt - cur > 60:
+                bant = kenar_bandi(resim(sayfa, "L"), cur, alt, True)
+                # aynı bant sağ sütunun sol kenarında da görünür (tablonun öbür yarısı): ikisinin birleşimi
+                if bant and os.path.exists(f"{D}/ocr/png/p{sayfa:03d}-R.png"):
+                    sag = kenar_bandi(resim(sayfa, "R"), max(0, bant[0] - 400), bant[1] + 400, False)
+                    if sag and sag[0] < bant[1] + 40 and sag[1] > bant[0] - 40:
+                        bant = (max(cur, min(bant[0], sag[0])), min(alt, max(bant[1], sag[1])))
+                if not bant:
+                    break
+                b0 = bos_satir(resim(sayfa, "L"), bant[0], cur, -1)
                 b1 = bos_satir(resim(sayfa, "L"), bant[1], alt, 1) + 1
+                if b1 <= cur:
+                    break
                 genis.append((sayfa, b0, b1))
-                if b0 - ust > 20:
-                    cikti.append(("tek", sayfa, "L", ust, b0, merkez))
+                if b0 - cur > 20:
+                    cikti.append(("tek", sayfa, "L", cur, b0, merkez))
                 cikti.append(("genis", sayfa, None, b0, b1, []))
-                if alt - b1 > 20:
-                    cikti.append(("tek", sayfa, "L", b1, alt, merkez))
                 sorun.append("bilgi: iki sütuna yayılan bant birleştirildi")
+                cur, buldu = b1, True
+            if buldu:
+                if alt - cur > 20:
+                    cikti.append(("tek", sayfa, "L", cur, alt, merkez))
                 continue
         cikti.append(("tek", sayfa, sut, ust, alt, merkez))
     # sağ sütun parçalarından genis bantları çıkar; bölünen parçadan yalnız içinde satır kalanlar tutulur
@@ -273,10 +370,10 @@ def aciklama_kes(k):
         if tur == "tek":
             for gs, b0, b1 in genis:
                 if gs == sayfa and sut == "R" and b0 < alt and b1 > ust:
-                    if b0 - ust > 20 and any(ust <= m < b0 for m in merkez):
+                    if b0 - ust > 20 and dolu(sayfa, "R", ust, b0, merkez):
                         son.append(("tek", sayfa, "R", ust, b0))
                     ust = max(ust, b1)
-            if alt - ust > 20 and any(ust <= m < alt for m in merkez):
+            if alt - ust > 20 and dolu(sayfa, sut, ust, alt, merkez):
                 son.append(("tek", sayfa, sut, ust, alt))
         else:
             son.append((tur, sayfa, sut, ust, alt))
@@ -331,19 +428,43 @@ for k in json.load(open(KONUM, encoding="utf-8")):
         dosyalar = []
         for n, p in enumerate(parcalar, 1):
             ad = f"{k['anahtar']}-k{n}.webp"
+            p = genislet(p)
             p.save(f"{CIKIS}/{ad}", quality=88, method=6)
             dosyalar.append({"ad": ad, "w": p.width, "h": p.height})
         denetim.append({"anahtar": k["anahtar"], "parca": len(parcalar), "dosyalar": dosyalar, "sorun": sorun})
         continue
     bas, son = k["bas"], k["sik_son"]
+    # konum önceki sorunun açıklamasından başlıyorsa (yapı eşleştirmesinde kayma): bölgedeki son "Doğru cevap"
+    # satırından sonrasına geç (bir sorunun kökünde/şıklarında cevap satırı olmaz)
+    # OCR satır sırası bozuk olabilir: numara satırından sonra listelenen ama aynı sütunda ondan YUKARIDA duran satırlar
+    # (önceki açıklamanın tablosu) soruya ait değildir
+    def yukarida(i):
+        return S[i][:2] == S[bas][:2] and S[i][2] < S[bas][2] - 5
+    cevaplar = [i for i in range(bas, son + 1) if yb.CEVAP.search(S[i][4]) and not yukarida(i)]
+    if cevaplar and NUMARA.match(S[bas][4]):
+        # baş doğru (numara satırı), son yanlış: iki soru birleşmiş -> ilk cevap satırından önceki son şık satırı
+        siklar = [i for i in range(bas, cevaplar[0]) if SIK_SATIR.match(S[i][4])]
+        if siklar:
+            son = siklar[-1]
+    elif cevaplar and cevaplar[-1] < son:
+        bas = cevaplar[-1] + 1
+    # ilk satır soru numarası değilse (önceki açıklamanın tablosu/şekli araya girmiş) ilk şıktan önceki numara satırına geç
+    if not NUMARA.match(S[bas][4]) and not k.get("ust_px"):
+        ilk_sik = next((i for i in range(bas, son + 1) if SIK.match(S[i][4]) or SIK_SATIR.match(S[i][4])), son)
+        numara = [i for i in range(bas, ilk_sik) if NUMARA.match(S[i][4])]
+        if numara:
+            bas = numara[0]
     # son şık alt satıra taşmış (küçük harfle ya da şık hizasında girintili başlayan satır şıkka aittir)
     sik_son_ilk = son
-    while son + 1 < len(S) and devam_mi(S[son], S[son + 1]):
+    while son + 1 < len(S) and devam_mi(S[son], S[son + 1], S[son - 1]):
         son += 1
     gruplar = {}
+    ust_sinir = S[bas][2] - 5 if not k.get("ust_px") else -1
     for i in range(bas, son + 1):
         s = S[i]
         if s[5]:  # varyant kutusu satiri
+            continue
+        if s[:2] == S[bas][:2] and s[2] < ust_sinir:  # numaranın üstündeki sıra dışı satır
             continue
         g = gruplar.setdefault((s[0], s[1]), [10**9, 0])
         g[0], g[1] = min(g[0], s[2]), max(g[1], s[3])
@@ -384,6 +505,7 @@ for k in json.load(open(KONUM, encoding="utf-8")):
     for p in parcalar:
         tuval.paste(p, (0, y))
         y += p.height + ARA
+    tuval = genislet(tuval)
     tuval.save(f"{CIKIS}/{k['anahtar']}.webp", quality=88, method=6)
     sorun = []
     if not re.match(r"^[\s\W_]{0,3}\d{1,3}\s?[.,]", S[bas][4]):
@@ -400,6 +522,6 @@ for k in json.load(open(KONUM, encoding="utf-8")):
         sorun.append(f"bilgi: son şık {son - sik_son_ilk} satır uzatıldı")
     if len(parcalar) > 1:
         sorun.append(f"{len(parcalar)}_parca")
-    denetim.append({"anahtar": k["anahtar"], "parca": len(parcalar), "boyut": [w, h], "sorun": sorun})
+    denetim.append({"anahtar": k["anahtar"], "parca": len(parcalar), "boyut": [w, h], "sorun": sorun, "bas": bas, "son": son})
 json.dump(denetim, open(f"{CIKIS}/denetim.json", "w"), ensure_ascii=False, indent=0)
 print(json.dumps({"soru": len(denetim), "sorunlu": [d for d in denetim if d["sorun"]]}, ensure_ascii=False))
