@@ -108,16 +108,25 @@ export async function b2Yukle(yol: string, icerik: Buffer, tur: string) {
       const v = await c.json();
       yukleme = { url: v.uploadUrl, token: v.authorizationToken };
     }
-    const c = await fetch(yukleme.url, {
-      method: "POST",
-      headers: {
-        Authorization: yukleme.token,
-        "X-Bz-File-Name": yol.split("/").map(encodeURIComponent).join("/"),
-        "Content-Type": tur,
-        "X-Bz-Content-Sha1": sha1,
-      },
-      body: new Uint8Array(icerik),
-    });
+    let c: Response;
+    try {
+      c = await fetch(yukleme.url, {
+        method: "POST",
+        headers: {
+          Authorization: yukleme.token,
+          "X-Bz-File-Name": yol.split("/").map(encodeURIComponent).join("/"),
+          "Content-Type": tur,
+          "X-Bz-Content-Sha1": sha1,
+        },
+        body: new Uint8Array(icerik),
+      });
+    } catch (e) {
+      // Önbellekteki yükleme adresinin sunucusu kapanmış olabilir ("fetch failed"): adresi bırak, yenisiyle dene.
+      // Bırakılmazsa sıcak kalan örnekteki bütün yüklemeler aynı ölü adrese gidip başarısız oluyordu (HATALAR E9).
+      yukleme = null;
+      if (deneme === 2) throw e;
+      continue;
+    }
     if (c.ok) return (await c.json()).fileId as string;
     // Yükleme adresi meşgul/süresi dolmuş olabilir: yenisini al ve tekrar dene
     yukleme = null;
