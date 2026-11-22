@@ -3,7 +3,7 @@
 Sorunun kitaptaki görüntüsü (kök + şekil/tablo + şıklar) — metin yerine kitaptan çözmek için (sorular.soru_kitap_gorsel).
 
 Kullanim: python3 -I soru_goruntu.py <D> <konum.json> <cikti_dizini> [--aciklama]
-  --aciklama: sorunun yerine açıklamasının kitaptaki görüntüsü (son şıktan "Doğru cevap" satırına kadar; konumda
+  --aciklama: sorunun yerine açıklamasının kitaptaki görüntüsü (son şıktan "Doğru cevap" satırı DAHİL; konumda
     "bitis" = cevap satırı). Telif kutusu ("ASLA HELAL ETMİYORUZ" … "TUSDATA"), sayfa üst bilgisi ("TÜM TUS SORULARI"),
     bölüm başlık bandı ve "şöyle de sorulabilirdi" kutusu atlanır; kalan satırlar sütun sütun, araya giren atlanmış
     satırda bölünerek kesilir. Denetim: içinde şık satırı / sınav etiketi / "Doğru cevap" kalan parça (başka soru sızmış).
@@ -222,7 +222,8 @@ def aciklama_kes(k):
     while not k.get("ac_bas") and y < k["bitis"] and devam_mi(S[y - 1], S[y]):  # son şıkkın taşan satırı soruya ait
         y += 1
     parcalar, sorun = [], []  # (sayfa, sut, ust, alt)
-    for dz in aciklama_satirlari(y, k["bitis"]):
+    # cevap satırı ("Doğru cevap: X") da açıklamaya dahil (kullanıcı isteği 22.11: okurken anahtarı da denetler)
+    for dz in aciklama_satirlari(y, k["bitis"] + (0 if k.get("ac_bas") else 1)):
         sayfa, sut = S[dz[0]][0], S[dz[0]][1]
         dizi = resim(sayfa, sut)
         u = min(S[i][2] for i in dz)
@@ -241,7 +242,7 @@ def aciklama_kes(k):
             alt = bos_kosu(dizi, a, dizi.shape[0], 1) + 1
         parcalar.append([sayfa, sut, max(0, ust), min(dizi.shape[0], max(alt, a)), [(S[i][2] + S[i][3]) // 2 for i in dz]])
         for i in dz:
-            if SIK.match(S[i][4]) or ETIKET.search(S[i][4]) or yb.CEVAP.search(S[i][4]):
+            if i != k["bitis"] and (SIK.match(S[i][4]) or ETIKET.search(S[i][4]) or yb.CEVAP.search(S[i][4])):
                 sorun.append("baska_soru_izi: " + S[i][4][:40])
     # iki sütuna yayılan tablo/şekil: sol parçada sağ kenara dayanan bant -> o bant L+R yan yana, sağ parçadan çıkar
     cikti = []
