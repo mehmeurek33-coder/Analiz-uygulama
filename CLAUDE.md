@@ -243,7 +243,12 @@ Raporlarken:
 - **TTS Farmakoloji** (35. baskı, taranmış): 52 set `TTS Farmakoloji · NN <alt bölüm>` (kaynak Tüm TUS Soruları, ders
   Farmakoloji; konu = alt bölüm adı, müfredatta TTS içindekileri), 1390 soru, 1384 blok açıklama (B2 `tts-farmakoloji/`),
   3 soru_gorsel. Kitapta kullanıcının kalem işaretleri var; varyant kutusu açıklamadan ÖNCE. İlk 251 soru tam görsel
-  taramadan geçti, kalanı nadir kelime yöntemiyle (B39-B40). Meditus Farmakoloji henüz yüklenmedi.
+  taramadan geçti, kalanı nadir kelime yöntemiyle (B39-B40).
+- **Meditus Farmakoloji** (5. baskı, taranmış, 298 s.; B2 `Meditus FARMAKOLOJİ.5.BASKI.pdf`, adında NFD İ): 12 set
+  `Meditus Farmakoloji · NN <Bölüm>` (kaynak Meditus), 1102 soru. Kitapta 05-217 yok, 08-034 ve 08-159'un cevabı basılmamış
+  (anahtarsız). 9 vaka grubu (`vaka_metni`), 15 soru_gorsel (B2 `meditus-farmakoloji/soru-mf-*.webp`). Konular TTS Farmakoloji
+  etiketlerinden en yakın komşu (`konu_tahmin` Farmakoloji uyarlaması, birini-dışarıda-bırak %91) + 76 elle; kemik metabolizması
+  soruları TTS'teki gibi Diabetes Mellitus (alt_konu "Kemik metabolizması"). Hatalar B43. Çalışma dizini scratchpad `mfarma/`.
 - **Meditus Mikrobiyoloji** (6. baskı, "Tamamı Açıklamalı 1000 Güncel Soru", kitapta İmmünoloji 83 yok):
   6 set `Meditus Mikrobiyoloji · 0N <Bölüm>` (Temel Mikrobiyoloji, İmmünoloji, Bakteriyoloji, Mikoloji,
   Viroloji, Parazitoloji), 999 soru, 994'ünde blok açıklama (B2 klasörü `meditus-mikrobiyoloji/`).

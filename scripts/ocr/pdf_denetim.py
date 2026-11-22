@@ -185,11 +185,18 @@ def asama_sayfa(pdf, cikti):
     boyut = collections.Counter((s["en"], s["boy"]) for s in sayfalar)
     farkli = [s["sayfa"] for s in sayfalar if (s["en"], s["boy"]) != boyut.most_common(1)[0][0]]
     yatay = [s["sayfa"] for s in sayfalar if s["en"] > s["boy"]]
+    # ters taranmis sayfa: /Rotate degeri cogunluktan farkli (Meditus Farmakoloji 5. baski s.297 180 derece donuk
+    # gelmisti; boyutu ayni oldugu icin yatay/farkli boyut denetimi yakalamadi). Kapak sayfalari da cikabilir: goruntuyle bak.
+    donus = {int(m.group(1)): int(m.group(2)) for m in re.finditer(
+        r"Page\s+(\d+)\s+rot:\s+(\d+)", calistir("pdfinfo", "-f", "1", "-l", str(sayfa_sayisi), pdf))}
+    cok = collections.Counter(donus.values()).most_common(1)[0][0] if donus else 0
+    farkli_donus = sorted(p for p, r in donus.items() if r != cok)
     rapor = {
         "pdf": os.path.basename(pdf), "sayfa_sayisi": sayfa_sayisi, "metin_katmani": metin_katmani,
         "kaynak_tahmini": kaynak, "ders_tahmini": [d for d, _ in ders.most_common(3)],
         "numarasi_okunan_sayfa": len(secilen), "sayfa_olaylari": olaylar,
         "cift_tarama_suphesi": cift, "bos_sayfa": bos, "farkli_boyutlu_sayfa": farkli, "yatay_sayfa": yatay,
+        "farkli_donuslu_sayfa": farkli_donus,
         "kapak_metni": kapak[:600],
         "kayma": {str(p): k for p, k in secilen.items()},
     }
