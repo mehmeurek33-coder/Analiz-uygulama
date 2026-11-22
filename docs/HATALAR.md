@@ -79,6 +79,7 @@ maddeler o kontrol listesinin gerekçesidir. Yeni hata bulunca buraya ekle.
 | D4 | Operatör `*.vercel.app`'i engelledi (mobil veride ERR_CONNECTION_CLOSED) | Cloudflare Worker `tusanaliz.mehmeurek33.workers.dev` ara adresi (`cloudflare/worker.js`) |
 | D5 | Bir yanlış konuyu listenin başına oturtuyordu ("takıntı") | Öncelik formülüne kanıt ağırlığı, karekök hata katkısı, 36 saatlik doygunluk, denemede tavan |
 | D6 | Bir kez doğru yapınca soru tekrar listesinden düşüyordu | Aralıklı tekrar (kutu 0-4, 2/7/21 gün) |
+| D7 | Bölüm yarıda "Bitir"lenince "Tamamlandı" görünüyor, "Tekrar çöz" en baştan başlatıyordu (kullanıcı, 22.11, Bakteri Genetiği 15/28) | Tur zinciri (göç 15): tamamlanma = zincirdeki turların bütün soruları kapsaması; "Devam et" kalan sorularla devam tur, "Baştan" yeni zincir. Yanlışlıkla açılan boş tur silindi |
 
 ## E. Depolama ve veri işlemleri
 

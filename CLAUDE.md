@@ -281,8 +281,11 @@ Raporlarken:
     öncelikle orantılı (`payDagit`); konu içinde sıra: vadesi gelen → hiç çözülmemiş → en eski bilinen.
     Hiç çözülmemişler kaynaklar arasında sırayla karışır (TTS, Meditus, ...).
     Konu denemesi ("Çöz") de aynı sırayla seçer. Panel ve ders sayfası bu listeyi ve ustalığı gösterir.
-- **Tekrar çözüm:** `v_set_ilerleme` son tura ek olarak en çok soru çözülen bitmiş turu
-  (`son_bitis_*`, `bitis_sayisi`) verir; tekrar turu yarıda kalsa da "Tamamlandı" görünür.
+- **Tekrar çözüm ve yarıda bitirme (göç 15, tur zinciri):** bölüm yarıda "Bitir"lenirse "Tamamlandı" SAYILMAZ:
+  "%x çözüldü · yarıda bırakıldı", "Devam et" yalnızca kalan (işaretlenmemiş) sorularla yeni tur açar ve onu ilk tura
+  bağlar (`denemeler.zincir_id`); "Baştan" (`yeni: true`) yeni zincir. Zincir setin bütün sorularını kapsayınca
+  `v_set_ilerleme.bitti_at` dolar ("Tamamlandı"); `tur_bitti_at` son turun kendisi, `soru_sayisi` setin soru sayısı,
+  `cevaplanan`/`dogru` zincirdeki farklı sorular. `son_bitis_*` son tamamlanmış zincir; tekrar turu yarıda kalsa da görünür.
   Hiç soru çözülmeden bitirilen anlık tur kaydedilmez (bitir rotası siler, `silindi: true`).
 - **Yedek:** Vercel cron (`vercel.json`, 3 günde bir 03:17 TR) → `GET /api/yedek` (`CRON_SECRET`) →
   `src/lib/yedek.ts`: her tablo `yedekler/<YYYY-MM-DD_HHmm>/<tablo>.json.gz` (gizli depo, son 10).
