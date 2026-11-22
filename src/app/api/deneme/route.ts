@@ -11,6 +11,8 @@ type Govde = {
   ad?: string;
   ders?: string;
   konu?: string;
+  /** Set turu: true = baştan yeni tur; yoksa son tur yarıda bitirildiyse kalan sorularla devam */
+  yeni?: boolean;
 };
 
 /** Yeni deneme olusturur ve icine girecek sorulari secer. */
@@ -18,7 +20,7 @@ export async function POST(request: Request) {
   const user = await oturumKullanicisi();
   if (!user) return NextResponse.json({ hata: "Oturum yok." }, { status: 401 });
 
-  const { setId = null, mod = "tumu", adet = 20, ad, ders, konu }: Govde = await request.json();
+  const { setId = null, mod = "tumu", adet = 20, ad, ders, konu, yeni = false }: Govde = await request.json();
   const supabase = await sunucuIstemcisi();
   const limit = Math.max(1, Math.min(200, Number(adet) || 20));
 
@@ -28,6 +30,9 @@ export async function POST(request: Request) {
   // denemeler (rastgele, zayıf konu, yanlışlarım, konu) anında geri bildirim verir.
   let anlik = true;
   let setAdi: string | null = null;
+  // Yarıda bitirilen bölüme devam: yeni tur, ilk tura bağlı (zincir), yalnızca kalan sorular
+  let zincirId: string | null = null;
+  const cozulmus = new Set<string>();
   if (mod === "tumu" && setId) {
     const { data: set } = await supabase
       .from("soru_setleri")
@@ -49,6 +54,34 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle();
     if (yarim) return NextResponse.json({ id: yarim.id, soruSayisi: yarim.soru_sayisi, devam: true });
+
+    if (!yeni) {
+      const { data: son } = await supabase
+        .from("denemeler")
+        .select("id, zincir_id")
+        .eq("user_id", user.id)
+        .eq("set_id", setId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (son) {
+        const kok = (son.zincir_id as string | null) ?? (son.id as string);
+        const { data: turlar } = await supabase
+          .from("denemeler")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("set_id", setId)
+          .or(`id.eq.${kok},zincir_id.eq.${kok}`);
+        const { data: cozulen } = await supabase
+          .from("cevaplar")
+          .select("soru_id")
+          .in("deneme_id", (turlar ?? []).map((t) => t.id as string))
+          .or("isaretlenen.not.is.null,aciklama_bakildi.is.true")
+          .limit(1000);
+        for (const c of cozulen ?? []) cozulmus.add(c.soru_id as string);
+        zincirId = kok;
+      }
+    }
   }
 
   if (mod === "konu") {
@@ -136,6 +169,12 @@ export async function POST(request: Request) {
     if (error) return NextResponse.json({ hata: error.message }, { status: 500 });
     const hepsi = (data ?? []).map((s) => s.id);
     soruIdleri = mod === "rastgele" ? karistir(hepsi).slice(0, limit) : hepsi;
+    if (zincirId) {
+      const kalan = soruIdleri.filter((id) => !cozulmus.has(id));
+      // Zincir bütün soruları kapsamışsa (bölüm tamamlandı) baştan yeni tur
+      if (kalan.length > 0 && cozulmus.size > 0) soruIdleri = kalan;
+      else zincirId = null;
+    }
   }
 
   if (soruIdleri.length === 0) {
@@ -159,6 +198,7 @@ export async function POST(request: Request) {
       ).slice(0, 120),
       soru_sayisi: soruIdleri.length,
       anlik,
+      zincir_id: zincirId,
     })
     .select("id")
     .single();

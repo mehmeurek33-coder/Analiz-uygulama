@@ -15,6 +15,7 @@ export default function DenemeBaslat({
   ders,
   konu,
   kucuk = false,
+  yeni = false,
 }: {
   mod: Mod;
   setId?: string;
@@ -25,6 +26,8 @@ export default function DenemeBaslat({
   ders?: string;
   konu?: string;
   kucuk?: boolean;
+  /** Set turu: yarıda bitirilmiş bölümü baştan başlat (yoksa kalan sorularla devam) */
+  yeni?: boolean;
 }) {
   const router = useRouter();
   const [bekle, setBekle] = useState(false);
@@ -37,7 +40,7 @@ export default function DenemeBaslat({
       const cevap = await fetch("/api/deneme", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mod, setId: setId ?? null, adet: adet ?? 20, ders, konu }),
+        body: JSON.stringify({ mod, setId: setId ?? null, adet: adet ?? 20, ders, konu, yeni }),
       });
       const veri = await cevap.json();
       if (!cevap.ok) throw new Error(veri.hata || "Deneme başlatılamadı.");

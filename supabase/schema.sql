@@ -744,3 +744,54 @@ create policy "kendi bildirimleri" on public.soru_bildirimleri
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 grant select, insert, update, delete on public.soru_bildirimleri to authenticated;
 grant all on public.soru_bildirimleri to service_role;
+
+-- ---------------------------------------------------------------- göç 15: yarıda bitirilen bölüm (tur zinciri)
+-- Bölüm yarıda "Bitir"lenince "Tamamlandı" sayılmaz. "Devam et" yalnızca kalan (çözülmemiş) sorularla yeni
+-- bir tur açar ve onu ilk tura bağlar (zincir_id = zincirin ilk turu). Zincirdeki turlar birlikte setin bütün
+-- sorularını kapsayınca bölüm tamamlanmış olur; "Tekrar çöz" yeni zincir başlatır.
+alter table public.denemeler add column if not exists zincir_id uuid references public.denemeler(id) on delete set null;
+create index if not exists denemeler_zincir_idx on public.denemeler(zincir_id);
+
+drop view if exists public.v_set_ilerleme;
+create view public.v_set_ilerleme with (security_invoker = true) as
+with zincir as (
+  -- her (kullanıcı, set, zincir): kapsanan farklı soru, son cevaba göre doğru, bitti mi
+  select d.user_id, d.set_id, coalesce(d.zincir_id, d.id) as zincir,
+         min(d.created_at) as basladi, max(d.bitti_at) as bitti_at, bool_and(d.bitti_at is not null) as hepsi_bitti
+  from public.denemeler d where d.set_id is not null
+  group by 1, 2, 3
+), kapsam as (
+  select z.user_id, z.set_id, z.zincir, z.basladi, z.bitti_at, z.hepsi_bitti,
+         count(distinct c.soru_id) filter (where c.isaretlenen is not null or c.aciklama_bakildi) as cevaplanan,
+         count(distinct c.soru_id) filter (where c.dogru is true) as dogru
+  from zincir z
+  join public.denemeler d on d.set_id = z.set_id and d.user_id = z.user_id and coalesce(d.zincir_id, d.id) = z.zincir
+  left join public.cevaplar c on c.deneme_id = d.id
+  group by 1, 2, 3, 4, 5, 6
+), boyut as (
+  select set_id, count(*) as soru from public.sorular group by set_id
+), tam as (
+  select k.*, (k.hepsi_bitti and k.cevaplanan >= b.soru) as tamam from kapsam k join boyut b on b.set_id = k.set_id
+)
+select distinct on (d.user_id, d.set_id)
+  d.user_id, d.set_id, st.ders, d.id as deneme_id,
+  b.soru as soru_sayisi,                                   -- setin soru sayısı (tur boyu değil)
+  case when sz.tamam then d.bitti_at end as bitti_at,      -- yalnızca zincir bütün soruları kapsayınca dolu
+  d.bitti_at as tur_bitti_at,                              -- son turun kendisi bitti mi
+  sz.cevaplanan, sz.dogru,
+  sb.bitti_at as son_bitis_at, b.soru as son_bitis_soru, sb.dogru as son_bitis_dogru,
+  (select count(*) from tam t where t.user_id = d.user_id and t.set_id = d.set_id and t.tamam) as bitis_sayisi,
+  sb.cevaplanan as son_bitis_cevaplanan,
+  coalesce(d.zincir_id, d.id) as zincir_id
+from public.denemeler d
+join public.soru_setleri st on st.id = d.set_id
+join boyut b on b.set_id = d.set_id
+join tam sz on sz.user_id = d.user_id and sz.set_id = d.set_id and sz.zincir = coalesce(d.zincir_id, d.id)
+left join lateral (
+  select t.bitti_at, t.cevaplanan, t.dogru from tam t
+  where t.user_id = d.user_id and t.set_id = d.set_id and t.tamam
+  order by t.bitti_at desc limit 1
+) sb on true
+where d.set_id is not null
+order by d.user_id, d.set_id, d.created_at desc;
+grant select on public.v_set_ilerleme to authenticated, service_role;

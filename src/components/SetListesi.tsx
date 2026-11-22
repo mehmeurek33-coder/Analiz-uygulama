@@ -7,8 +7,11 @@ export type Ilerleme = {
   soru_sayisi: number;
   cevaplanan: number;
   dogru: number;
+  /** Bölüm tamamlandı (son tur zinciri setin bütün sorularını kapsadı); yarıda bitirilen turda boş */
   bitti_at: string | null;
-  /** En çok soru çözülen bitmiş tur (tekrar çözüm yarıda kalsa da görünür) */
+  /** Son turun kendisi bitirildi mi ("Bitir"e basıldı; bölüm yarıda kalmış olabilir) */
+  tur_bitti_at?: string | null;
+  /** En son tamamlanan tur soru çözülen bitmiş tur (tekrar çözüm yarıda kalsa da görünür) */
   son_bitis_at?: string | null;
   son_bitis_cevaplanan?: number | null;
   son_bitis_dogru?: number | null;
@@ -16,7 +19,7 @@ export type Ilerleme = {
 };
 
 export const ILERLEME_ALANLARI =
-  "set_id, soru_sayisi, cevaplanan, dogru, bitti_at, son_bitis_at, son_bitis_cevaplanan, son_bitis_dogru, bitis_sayisi";
+  "set_id, soru_sayisi, cevaplanan, dogru, bitti_at, tur_bitti_at, son_bitis_at, son_bitis_cevaplanan, son_bitis_dogru, bitis_sayisi";
 
 /** "TTS Mikrobiyoloji · 09 Gram Pozitif Koklar" -> "09 Gram Pozitif Koklar" */
 export function bolumAdi(ad: string) {
@@ -76,13 +79,19 @@ export default function SetListesi({
                 )}
               </div>
               {s.durum === "hazir" || s.soru_sayisi > 0 ? (
-                <DenemeBaslat
-                  mod="tumu"
-                  setId={s.id}
-                  etiket={!il ? "Çöz" : il.bitti_at ? "Tekrar çöz" : "Devam et"}
-                  ikincil
-                  kucuk
-                />
+                <div className="flex items-center gap-1.5">
+                  {/* Yarıda bitirilen bölüm: "Devam et" kalan sorularla açılır; istenirse baştan */}
+                  {il && !il.bitti_at && il.tur_bitti_at && (
+                    <DenemeBaslat mod="tumu" setId={s.id} etiket="Baştan" ikincil kucuk yeni />
+                  )}
+                  <DenemeBaslat
+                    mod="tumu"
+                    setId={s.id}
+                    etiket={!il ? "Çöz" : il.bitti_at ? "Tekrar çöz" : "Devam et"}
+                    ikincil
+                    kucuk
+                  />
+                </div>
               ) : (
                 <Link href={`/yukle?set=${s.id}`} className="btn-ikincil px-3 py-1.5 text-xs">
                   Devam et
@@ -140,6 +149,7 @@ function SetIlerleme({ soruSayisi, il }: { soruSayisi: number; il?: Ilerleme }) 
         ) : (
           <span className="font-semibold text-vurgu">
             {tamamSatiri ? "Tekrar: " : ""}%{yuzde} çözüldü
+            {il.tur_bitti_at ? " · yarıda bırakıldı" : ""}
           </span>
         )}
         <span className="text-silik">
