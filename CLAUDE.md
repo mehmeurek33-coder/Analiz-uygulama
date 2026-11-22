@@ -261,6 +261,13 @@ Raporlarken:
   yanlışlarım). `/ders/<Ders>` = o dersin istatistikleri, derse özel denemeler, kaynaklar (her kaynak
   ayrı katlanır liste, bölüm bölüm ilerleme) ve konu listesi (konu konu deneme). Setin yeri
   `soru_setleri.ders`, `kaynak`, `bolum_no` kolonlarından gelir.
+- **Kitap görünümü (göç 16, pilot 22.11):** `sorular.soru_kitap_gorsel` = sorunun kitaptaki görüntüsü (kök + şekil +
+  şıklar; B2 `tts-mikrobiyoloji/kitap/<soru_id>.webp`). Varsa çözüm ve sonuç ekranı görüntüyü + A–E düğmelerini gösterir,
+  "Metin olarak göster" ile metne geçilir (görüntü açılmazsa kendiliğinden metne düşer). Üretim: `scripts/ocr/soru_goruntu.py
+  <D> <konum.json> <çıktı>` (konum: yeni_baski satırları `bas`..`sik_son`; son şıkkın alt satırı, boş piksel satırından
+  kesim, `ust_px` elle). Kırpıntı denetimi: üstte numara, altta E, içinde "Doğru cevap" yok; pilotta hepsine gözle bakıldı.
+  Pilot: TTS Mikro bölüm 01, 03, 04 (29 soru). Konum kaynakları: scratchpad `yeni/yapi.json` (eski_id = soru id),
+  `deney/kayip_konum.json`, `yeni/ekle/yeni_harita.json` (yeni-<aday>). Kalem işaretli TTS Farmakoloji'de dikkat.
 - **Yanlışlarım (tekrar listesi, aralıklı tekrar):** hata yapılan sorular + doğru olsa da "emin değilim"
   işaretlenenler (`cevaplar.emin_degil`) + işaretlemeden açıklamasına bakılanlar
   (`cevaplar.aciklama_bakildi`, `/api/aciklama-bak`; soru kilitlenir) + test bitince boş bırakılıp

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import AciklamaKutusu, { type AciklamaBlogu } from "@/components/AciklamaKutusu";
 import SoruKoku from "@/components/SoruKoku";
+import Gorsel from "@/components/Gorsel";
 import HataBildir from "@/components/HataBildir";
 
 export type Sonuc = {
@@ -32,6 +33,8 @@ export type CozumSorusu = {
   vakaMetni?: string | null;
   /** Kökteki şekil/grafi (imzalı bağlantı) */
   soruGorsel?: string | null;
+  /** Sorunun kitaptaki görüntüsü (kök + şıklar; imzalı bağlantı). Varsa soru buradan çözülür, metin isteğe bağlı. */
+  kitapGorsel?: string | null;
   /** Soru bankası modunda, cevaplanmış soruların sonucu */
   sonuc: Sonuc | null;
   /** Soru bankası modunda önceden yüklenen anahtar (anında geri bildirim için) */
@@ -72,6 +75,8 @@ export default function CozumEkrani({
     Object.fromEntries(sorular.filter((s) => s.sonuc).map((s) => [s.soruId, s.sonuc as Sonuc])),
   );
   const [aciklamaAcik, setAciklamaAcik] = useState<Record<string, boolean>>({});
+  // Kitap görüntüsü olan soruda metin görünümüne geçilenler (görüntü açılmazsa da metne düşer)
+  const [metinGoster, setMetinGoster] = useState<Record<string, boolean>>({});
   const [eminDegil, setEminDegil] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(sorular.map((s) => [s.soruId, Boolean(s.eminDegil)])),
   );
@@ -382,14 +387,96 @@ export default function CozumEkrani({
               </button>
             </div>
 
-            <SoruKoku
-              metin={soru.metin}
-              vakaMetni={soru.vakaMetni}
-              soruGorsel={soru.soruGorsel}
-              vakaTekrar={Boolean(soru.vakaMetni) && sorular[i - 1]?.vakaMetni === soru.vakaMetni}
-            />
+            {soru.kitapGorsel && !metinGoster[soru.soruId] ? (
+              <>
+                {soru.vakaMetni && (
+                  <div className="mb-3">
+                    <SoruKoku
+                      metin=""
+                      vakaMetni={soru.vakaMetni}
+                      vakaTekrar={sorular[i - 1]?.vakaMetni === soru.vakaMetni}
+                    />
+                  </div>
+                )}
+                <div className="overflow-hidden rounded-xl border border-cizgi bg-white p-1">
+                  <Gorsel
+                    src={soru.kitapGorsel}
+                    alt={`${i + 1}. soru (kitaptaki hâli)`}
+                    className="block h-auto w-full"
+                    onBasarisiz={() => setMetinGoster((m) => ({ ...m, [soru.soruId]: true }))}
+                  />
+                </div>
+                {/* Şıklar görüntüde; burada yalnızca harfler */}
+                <div className="mt-3 grid grid-cols-5 gap-2">
+                  {harfler.map((harf) => {
+                    const benim = secili === harf;
+                    const dogruSik = r?.dogruCevap === harf;
+                    let sinif = "border-cizgi bg-kart2 text-metin hover:border-vurgu/50";
+                    if (r) {
+                      if (dogruSik) sinif = "border-iyi bg-iyi text-white";
+                      else if (benim) sinif = "border-zayif bg-zayif text-white";
+                      else sinif = "border-cizgi bg-kart2 text-silik opacity-60";
+                    } else if (benim) sinif = "border-vurgu bg-vurgu text-[#06281c]";
+                    return (
+                      <button
+                        key={harf}
+                        type="button"
+                        disabled={Boolean(r) || (!anlik && bekleyen[soru.soruId])}
+                        onClick={() => isaretle(soru, harf)}
+                        aria-label={`${harf} şıkkı`}
+                        className={`rounded-xl border py-3 text-lg font-bold transition disabled:cursor-default ${sinif}`}
+                      >
+                        {harf}
+                      </button>
+                    );
+                  })}
+                </div>
+                {r && (
+                  <p className="mt-2 text-xs text-silik">
+                    {r.dogruCevap ? (
+                      <>
+                        Doğru cevap <b className="text-iyi">{r.dogruCevap}</b>
+                        {secili && secili !== r.dogruCevap && (
+                          <>
+                            {" "}
+                            · senin cevabın <b className="text-zayif">{secili}</b>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      "Cevap anahtarı yok"
+                    )}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  className="mt-2 text-xs text-silik hover:text-metin hover:underline"
+                  onClick={() => setMetinGoster((m) => ({ ...m, [soru.soruId]: true }))}
+                >
+                  Metin olarak göster
+                </button>
+              </>
+            ) : (
+              <>
+                <SoruKoku
+                  metin={soru.metin}
+                  vakaMetni={soru.vakaMetni}
+                  soruGorsel={soru.soruGorsel}
+                  vakaTekrar={Boolean(soru.vakaMetni) && sorular[i - 1]?.vakaMetni === soru.vakaMetni}
+                />
+                {soru.kitapGorsel && (
+                  <button
+                    type="button"
+                    className="mt-2 text-xs text-silik hover:text-metin hover:underline"
+                    onClick={() => setMetinGoster((m) => ({ ...m, [soru.soruId]: false }))}
+                  >
+                    Kitaptaki hâlini göster
+                  </button>
+                )}
+              </>
+            )}
 
-            <div className="mt-4 space-y-2">
+            <div className={`mt-4 space-y-2 ${soru.kitapGorsel && !metinGoster[soru.soruId] ? "hidden" : ""}`}>
               {harfler.map((harf) => {
                 const benim = secili === harf;
                 const dogruSik = r?.dogruCevap === harf;

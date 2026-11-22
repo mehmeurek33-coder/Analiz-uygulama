@@ -795,3 +795,8 @@ left join lateral (
 where d.set_id is not null
 order by d.user_id, d.set_id, d.created_at desc;
 grant select on public.v_set_ilerleme to authenticated, service_role;
+
+-- ---------------------------------------------------------------- göç 16: sorunun kitaptaki görüntüsü
+-- Soru kitaptaki görüntüsünden çözülür (OCR metin hatası sıfır): kök + şekil + şıklar tek görüntü (B2 yolu,
+-- scripts/ocr/soru_goruntu.py). Varsa çözüm ekranı görüntüyü ve A–E düğmelerini gösterir; metin isteğe bağlı.
+alter table public.sorular add column if not exists soru_kitap_gorsel text;

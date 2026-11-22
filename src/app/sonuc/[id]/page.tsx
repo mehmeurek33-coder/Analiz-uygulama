@@ -27,15 +27,20 @@ export default async function SonucPage({ params }: { params: Promise<{ id: stri
   const { data: satirlar } = await supabase
     .from("cevaplar")
     .select(
-      "id, soru_id, sira, isaretlenen, dogru, sure_sn, sorular(numara, metin, vaka_metni, soru_gorsel, secenekler, dogru_cevap, aciklama, aciklama_gorsel, aciklama_bloklar, ders, konu, alt_konu)",
+      "id, soru_id, sira, isaretlenen, dogru, sure_sn, sorular(numara, metin, vaka_metni, soru_gorsel, soru_kitap_gorsel, secenekler, dogru_cevap, aciklama, aciklama_gorsel, aciklama_bloklar, ders, konu, alt_konu)",
     )
     .eq("deneme_id", id)
     .order("sira", { ascending: true });
 
   const baglantilar = await gorselBaglantilari(
     (satirlar ?? []).flatMap((s) => {
-      const q = s.sorular as unknown as { soru_gorsel?: string | null; aciklama_gorsel?: string | null; aciklama_bloklar?: unknown };
-      return [q?.soru_gorsel, q?.aciklama_gorsel, ...blokYollari(q?.aciklama_bloklar)];
+      const q = s.sorular as unknown as {
+        soru_gorsel?: string | null;
+        soru_kitap_gorsel?: string | null;
+        aciklama_gorsel?: string | null;
+        aciklama_bloklar?: unknown;
+      };
+      return [q?.soru_gorsel, q?.soru_kitap_gorsel, q?.aciklama_gorsel, ...blokYollari(q?.aciklama_bloklar)];
     }),
   );
 
@@ -45,6 +50,7 @@ export default async function SonucPage({ params }: { params: Promise<{ id: stri
       metin: string;
       vaka_metni: string | null;
       soru_gorsel: string | null;
+      soru_kitap_gorsel?: string | null;
       secenekler: Record<string, string>;
       dogru_cevap: string | null;
       aciklama: string | null;
@@ -65,6 +71,7 @@ export default async function SonucPage({ params }: { params: Promise<{ id: stri
       metin: soru?.metin ?? "",
       vakaMetni: soru?.vaka_metni ?? null,
       soruGorsel: soru?.soru_gorsel ? (baglantilar.get(soru.soru_gorsel) ?? null) : null,
+      kitapGorsel: soru?.soru_kitap_gorsel ? (baglantilar.get(soru.soru_kitap_gorsel) ?? null) : null,
       secenekler: soru?.secenekler ?? {},
       dogruCevap: soru?.dogru_cevap ?? null,
       aciklama: soru?.aciklama ?? null,

@@ -5,6 +5,7 @@ import AciklamaKutusu, { type AciklamaBlogu } from "@/components/AciklamaKutusu"
 import SoruDuzelt from "@/components/SoruDuzelt";
 import HataBildir from "@/components/HataBildir";
 import SoruKoku from "@/components/SoruKoku";
+import Gorsel from "@/components/Gorsel";
 
 export type SonucSatiri = {
   id: string;
@@ -17,6 +18,8 @@ export type SonucSatiri = {
   metin: string;
   vakaMetni?: string | null;
   soruGorsel?: string | null;
+  /** Sorunun kitaptaki görüntüsü (kök + şıklar) */
+  kitapGorsel?: string | null;
   secenekler: Record<string, string>;
   dogruCevap: string | null;
   aciklama: string | null;
@@ -99,9 +102,36 @@ export default function SonucListesi({ satirlar }: { satirlar: SonucSatiri[] }) 
                 {s.sureSn > 0 && <span className="text-silik">{s.sureSn} sn</span>}
               </div>
 
-              <SoruKoku metin={s.metin} vakaMetni={s.vakaMetni} soruGorsel={s.soruGorsel} />
+              {s.kitapGorsel ? (
+                <>
+                  {s.vakaMetni && <SoruKoku metin="" vakaMetni={s.vakaMetni} />}
+                  <div className="mt-2 overflow-hidden rounded-xl border border-cizgi bg-white p-1">
+                    <Gorsel src={s.kitapGorsel} alt="Sorunun kitaptaki hâli" loading="lazy" className="block h-auto w-full" />
+                  </div>
+                  <div className="mt-3 grid grid-cols-5 gap-2">
+                    {Object.keys(s.secenekler)
+                      .sort()
+                      .map((harf) => (
+                        <span
+                          key={harf}
+                          className={`rounded-lg border py-2 text-center font-bold ${
+                            s.dogruCevap === harf
+                              ? "border-iyi bg-iyi text-white"
+                              : s.isaretlenen === harf
+                                ? "border-zayif bg-zayif text-white"
+                                : "border-cizgi text-silik"
+                          }`}
+                        >
+                          {harf}
+                        </span>
+                      ))}
+                  </div>
+                </>
+              ) : (
+                <SoruKoku metin={s.metin} vakaMetni={s.vakaMetni} soruGorsel={s.soruGorsel} />
+              )}
 
-              <ul className="mt-3 space-y-1.5">
+              <ul className={`mt-3 space-y-1.5 ${s.kitapGorsel ? "hidden" : ""}`}>
                 {Object.keys(s.secenekler)
                   .sort()
                   .map((harf) => {

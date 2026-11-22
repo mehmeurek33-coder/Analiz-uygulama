@@ -27,8 +27,8 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
   // Soru bankası modunda (kişisel çalışma) anında geri bildirim için önceden gönderilir;
   // arayüz cevap verilene kadar göstermez. Puanlama yine sunucuda yapılır.
   const alanlar = deneme.anlik
-    ? "numara, metin, secenekler, ders, konu, vaka_metni, soru_gorsel, dogru_cevap, aciklama, aciklama_gorsel, aciklama_bloklar"
-    : "numara, metin, secenekler, ders, konu, vaka_metni, soru_gorsel";
+    ? "numara, metin, secenekler, ders, konu, vaka_metni, soru_gorsel, soru_kitap_gorsel, dogru_cevap, aciklama, aciklama_gorsel, aciklama_bloklar"
+    : "numara, metin, secenekler, ders, konu, vaka_metni, soru_gorsel, soru_kitap_gorsel";
 
   const { data: satirlar } = await supabase
     .from("cevaplar")
@@ -39,8 +39,13 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
   // Kök görseli her iki modda da gerekir; açıklama görselleri yalnızca soru bankası modunda
   const baglantilar = await gorselBaglantilari(
     (satirlar ?? []).flatMap((s) => {
-      const q = s.sorular as unknown as { soru_gorsel?: string | null; aciklama_gorsel?: string | null; aciklama_bloklar?: unknown };
-      return [q?.soru_gorsel, ...(deneme.anlik ? [q?.aciklama_gorsel, ...blokYollari(q?.aciklama_bloklar)] : [])];
+      const q = s.sorular as unknown as {
+        soru_gorsel?: string | null;
+        soru_kitap_gorsel?: string | null;
+        aciklama_gorsel?: string | null;
+        aciklama_bloklar?: unknown;
+      };
+      return [q?.soru_gorsel, q?.soru_kitap_gorsel, ...(deneme.anlik ? [q?.aciklama_gorsel, ...blokYollari(q?.aciklama_bloklar)] : [])];
     }),
   );
 
@@ -53,6 +58,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
       konu: string | null;
       vaka_metni?: string | null;
       soru_gorsel?: string | null;
+      soru_kitap_gorsel?: string | null;
       dogru_cevap?: string | null;
       aciklama?: string | null;
       aciklama_gorsel?: string | null;
@@ -77,6 +83,7 @@ export default async function DenemePage({ params }: { params: Promise<{ id: str
       konu: soru?.konu ?? null,
       vakaMetni: soru?.vaka_metni ?? null,
       soruGorsel: soru?.soru_gorsel ? (baglantilar.get(soru.soru_gorsel) ?? null) : null,
+      kitapGorsel: soru?.soru_kitap_gorsel ? (baglantilar.get(soru.soru_kitap_gorsel) ?? null) : null,
       sonuc: acik
         ? { dogru: s.dogru, dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null, aciklamaGorsel: gorsel, aciklamaBloklar: bloklar }
         : null,
