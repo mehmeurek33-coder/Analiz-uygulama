@@ -376,15 +376,15 @@ def aciklama_kes(k):
     while i < bitis:
         benzer = re.search(r"BENZER", S[i][4]) and not S[i][5]
         if (re.search(r"sorulabilirdi", S[i][4]) or benzer) and not S[i][5]:
-            if benzer:  # başlık okunmamış varyant: kökü 4 satır yukarıda başlar (açıklama başındaysa oradan)
-                i = y if i - y <= 5 else i - 3
+            # başlık okunmamış varyant: kökü 4 satır yukarıda başlar (açıklama başındaysa oradan)
+            bas_v = (y if i - y <= 5 else i - 3) if benzer else i
             j = i
             while j < bitis and not yb.CEVAP.search(S[j][4]):
                 j += 1
             if j < bitis:
-                atla.update(range(i, j + 1))
+                atla.update(range(bas_v, j + 1))
                 sorun.append("bilgi: varyant kutusu atlandı (kural D)")
-                i = j
+            i = j  # her durumda ileri git (sonsuz döngü olmasın)
         i += 1
     son_cevap = S[bitis]
     # cevap satırı ("Doğru cevap: X") da açıklamaya dahil (kullanıcı isteği 22.11: okurken anahtarı da denetler)
