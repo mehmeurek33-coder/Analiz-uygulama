@@ -40,7 +40,15 @@ import yeni_baski as yb  # noqa: E402
 PAY_UST, PAY_ALT, ARA = 14, 16, 18
 # Dar sütun görüntüleri bu genişliğe beyazla ortalanır: uygulamada tam genişlikte gösterilince yazı boyu sorudan soruya
 # değişmesin (dar kırpıntı büyük, geniş kırpıntı küçük görünüyordu). Kitabın tipik sütun genişliği (px).
-HEDEF_GEN = int(os.environ.get("HEDEF_GEN", "1220"))
+def _hedef_gen():
+    if os.environ.get("HEDEF_GEN"):
+        return int(os.environ["HEDEF_GEN"])
+    import glob as _g
+    ws = sorted(Image.open(f).width for f in sorted(_g.glob(f"{D}/ocr/png/*.png"))[::9])
+    return ws[len(ws) // 2] if ws else 1220  # kitabın tipik sütun genişliği (medyan)
+
+
+HEDEF_GEN = _hedef_gen()
 
 
 def genislet(im):
@@ -103,7 +111,8 @@ def devam_mi(son_satir, sonraki, onceki=None):
         return False
     # satır aralığı şıklar arasındakinden belirgin büyükse (açıklama paragrafı başlıyor) devam değildir
     if onceki is not None and onceki[:2] == son_satir[:2]:
-        if sonraki[2] - son_satir[3] > max(14, son_satir[2] - onceki[3] + 8):
+        ara, onceki_ara = sonraki[2] - son_satir[3], son_satir[2] - onceki[3]
+        if ara > max(12, onceki_ara * 1.5) and ara > onceki_ara + 5:
             return False
     if ACIK.match(sonraki[4].strip()):
         return True
@@ -161,7 +170,7 @@ TELIF_BAS = re.compile(r"HELAL\s*ET", re.I)
 TELIF_SON = re.compile(r"^\W*TUS-?DATA\W*$")
 UST_BILGI = re.compile(r"TÜM\s*TUS\s*SORULARI|^\W*\d{1,3}\W*$")
 SIK = re.compile(r"^[\s\W]{0,3}[A-E][)\]]\s")
-SIK_SATIR = re.compile(r"^[\s\W]{0,3}[A-E8][)\]]")
+SIK_SATIR = re.compile(r"^[\s\W]{0,3}(?:[A-E8G€][)\]}]|A[jJ]\)?)")  # "AJ)", "G)"=C, "€)"=E OCR bozulmaları
 NUMARA = re.compile(r"^[\s\W_]{0,3}\d{1,3}\s?[.,](\s|$|(?=[A-ZÇĞİÖŞÜ]))")  # "20.Bir ..." boşluksuz da
 ETIKET = re.compile(r"\((İlkbahar|Sonbahar)\s*[-–]?\s*\d{2,4}")  # kökteki sınav etiketi parantezli; açıklamadaki anış değil
 
@@ -454,6 +463,14 @@ for k in json.load(open(KONUM, encoding="utf-8")):
         numara = [i for i in range(bas, ilk_sik) if NUMARA.match(S[i][4])]
         if numara:
             bas = numara[0]
+    # konum E şıkkından sonrasını da içeriyorsa (açıklama ilk paragrafı: cevabı ele verir) E satırında kes;
+    # E satırından sonraki satırlar yalnızca şıkkın gerçek devamıysa (devam_mi) kalır
+    e_satir = [i for i in range(bas, son + 1) if re.search(r"(^|\s)[E€£&]\s?[)\]}]", S[i][4])]
+    if e_satir and e_satir[-1] < son:
+        j = e_satir[-1]
+        while j < son and devam_mi(S[j], S[j + 1], S[j - 1]):
+            j += 1
+        son = j
     # son şık alt satıra taşmış (küçük harfle ya da şık hizasında girintili başlayan satır şıkka aittir)
     sik_son_ilk = son
     while son + 1 < len(S) and devam_mi(S[son], S[son + 1], S[son - 1]):
