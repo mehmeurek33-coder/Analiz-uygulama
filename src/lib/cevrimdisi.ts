@@ -225,6 +225,7 @@ export async function gorselleriIndir(
   urller: string[],
   ilerleme: (biten: number, toplam: number, bayt: number) => void,
   iptal: { dur: boolean } = { dur: false },
+  eszamanli = 6,
 ) {
   const kayitli = await tablettekiGorseller();
   const liste = [...new Set(urller)].filter((u) => !kayitli.has(gorselAnahtari(u)));
@@ -278,7 +279,7 @@ export async function gorselleriIndir(
       ilerleme(++biten, toplam, bayt);
     }
   };
-  await Promise.all(Array.from({ length: 6 }, isci));
+  await Promise.all(Array.from({ length: eszamanli }, isci));
   try {
     await kilit?.release();
   } catch {
@@ -339,7 +340,7 @@ export function sonDenemeSil(id: string) {
  */
 export async function yerelVeriyiSil() {
   try {
-    for (const k of Object.keys(localStorage)) if (k.startsWith("sa-") && k !== KUYRUK) localStorage.removeItem(k);
+    for (const k of Object.keys(localStorage)) if (k.startsWith("sa-") && k !== KUYRUK && k !== "sa-oto-indir") localStorage.removeItem(k);
     await caches.delete(VERI);
     await caches.delete("sayfa-v1");
   } catch {

@@ -285,7 +285,9 @@ Raporlarken:
   (`kaydet`), bağlantı gelince sırayla gider; bölüm verisi Cache API `veri-v1`'de, internetsiz açılışta yerel izle tamamlanır;
   "⇩ Bölümü tablete indir" bölümün görüntülerini, **`/indir` sayfası** (üst menü "İndir") ders/kaynak bazında ya da hepsini
   (kitap görünümü ≈ 11.000 dosya, ~770 MB) indirir; sayfa görüntüyü doğrudan `gorsel-v1` önbelleğine yazar, inenler atlanır,
-  B2 günlük sınırına (art arda 403/429) takılırsa durur; "Devam et" internetsiz son açılan tura gider; Bitir internet ister.
+  B2 günlük sınırına (art arda 403/429) takılırsa durur;
+  cihaz ayarı "kendiliğinden indir" (`sa-oto-indir`, `src/lib/gorselListesi.ts`, varsayılan kapalı; kullanıcı telefonda istemiyor):
+  açıksa her açılışta 6 saatte bir eksik/yeni görüntüleri 2 eşzamanlı arka planda indirir; "Devam et" internetsiz son açılan tura gider; Bitir internet ister.
   Kitap görüntüleri `loading="lazy"` + `soru_kitap_w/h` (göç 18) ile yer ayrılır. **Yeniden üretilen görsel tablette 7 güne kadar
   eski görünebilir** (kullanıcı bildirirse: sayfayı yenilemek yetmez; servis çalışanında GORSEL adını v2 yap). Yeni kitapta
   `soru_kitap_w/h` yazmayı unutma (yerel webp boyutundan).

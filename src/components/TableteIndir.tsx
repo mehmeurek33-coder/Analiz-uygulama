@@ -1,11 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { gorselleriIndir, tablettekiGorseller, tablettemi } from "@/lib/cevrimdisi";
-import { sablonHaritasi } from "@/lib/gorselYardim";
-import { gorselSablonuAl, veriIstemcisi } from "@/lib/veriIstemci";
-
-type Grup = { anahtar: string; ders: string; kaynak: string; soru: number; urller: string[]; tablette: number };
+import { gorselleriIndir } from "@/lib/cevrimdisi";
+import { type Grup, gorselGruplari, otoIndirAcik, otoIndirAyarla, otoIptal } from "@/lib/gorselListesi";
 
 function mb(b: number) {
   return b >= 1e9 ? `${(b / 1e9).toFixed(2)} GB` : `${Math.round(b / 1e6)} MB`;
@@ -23,6 +20,8 @@ export default function TableteIndir() {
   const [alan, setAlan] = useState<{ kullanilan: number; kota: number } | null>(null);
   const [is, setIs] = useState<{ ad: string; biten: number; toplam: number; bayt: number; hatali?: number; bitti?: boolean; sinir?: boolean } | null>(null);
   const iptal = useRef({ dur: false });
+  const [oto, setOto] = useState(false);
+  useEffect(() => setOto(otoIndirAcik()), []);
 
   async function alanOlc() {
     try {
@@ -35,41 +34,7 @@ export default function TableteIndir() {
 
   async function yukle() {
     try {
-      const sb = veriIstemcisi();
-      const satirlar: { soru_kitap_gorsel: string | null; soru_gorsel: string | null; aciklama_kitap: { yol?: string }[] | null; aciklama_bloklar: { t?: string; yol?: string }[] | null; soru_setleri: { ders: string | null; kaynak: string | null } | null }[] = [];
-      for (let bas = 0; ; bas += 1000) {
-        const { data, error } = await sb
-          .from("sorular")
-          .select("id, soru_kitap_gorsel, soru_gorsel, aciklama_kitap, aciklama_bloklar, soru_setleri(ders, kaynak)")
-          .order("id")
-          .range(bas, bas + 999);
-        if (error) throw new Error(error.message);
-        satirlar.push(...((data ?? []) as unknown as typeof satirlar));
-        if (!data || data.length < 1000) break;
-      }
-      const yollar = new Map<string, { ders: string; kaynak: string; soru: number; yollar: string[] }>();
-      for (const s of satirlar) {
-        const ders = s.soru_setleri?.ders ?? "Diğer";
-        const kaynak = s.soru_setleri?.kaynak ?? "Diğer";
-        const k = `${ders} · ${kaynak}`;
-        if (!yollar.has(k)) yollar.set(k, { ders, kaynak, soru: 0, yollar: [] });
-        const g = yollar.get(k)!;
-        g.soru++;
-        if (s.soru_kitap_gorsel) g.yollar.push(s.soru_kitap_gorsel);
-        if (s.soru_gorsel) g.yollar.push(s.soru_gorsel);
-        if (s.aciklama_kitap?.length) for (const p of s.aciklama_kitap) p.yol && g.yollar.push(p.yol);
-        else for (const b of s.aciklama_bloklar ?? []) if (b.t === "g" && b.yol) g.yollar.push(b.yol);
-      }
-      const sablon = await gorselSablonuAl();
-      if (!sablon) throw new Error("görsel adresi alınamadı (oturum?)");
-      const kayitli = await tablettekiGorseller();
-      const liste: Grup[] = [...yollar.entries()]
-        .map(([anahtar, g]) => {
-          const urller = [...sablonHaritasi(g.yollar, sablon).values()];
-          return { anahtar, ders: g.ders, kaynak: g.kaynak, soru: g.soru, urller, tablette: urller.filter((u) => tablettemi(u, kayitli)).length };
-        })
-        .sort((a, b) => a.ders.localeCompare(b.ders, "tr") || a.kaynak.localeCompare(b.kaynak, "tr"));
-      setGruplar(liste);
+      setGruplar(await gorselGruplari());
     } catch (e) {
       setHata(e instanceof Error ? e.message : "Liste alınamadı");
     }
@@ -82,6 +47,7 @@ export default function TableteIndir() {
 
   async function indir(ad: string, urller: string[]) {
     iptal.current = { dur: false };
+    otoIptal.dur = true; // arka plandaki otomatik indirme dursun, ikisi aynı anda inmesin
     setIs({ ad, biten: 0, toplam: 0, bayt: 0 });
     const s = await gorselleriIndir(urller, (biten, toplam, bayt) => setIs({ ad, biten, toplam, bayt }), iptal.current);
     setIs({ ad, biten: s.biten, toplam: s.toplam, bayt: s.bayt, hatali: s.hatali, bitti: true, sinir: s.sinir });
@@ -108,6 +74,25 @@ export default function TableteIndir() {
           {alan.kota > 0 && <> · izin verilen: {mb(alan.kota)}</>}
         </p>
       )}
+
+      <label className="kart flex cursor-pointer items-start gap-3">
+        <input
+          type="checkbox"
+          className="mt-1 h-4 w-4"
+          checked={oto}
+          onChange={(e) => {
+            otoIndirAyarla(e.target.checked);
+            setOto(e.target.checked);
+          }}
+        />
+        <span className="text-sm">
+          <b>Bu cihaza yeni görüntüleri kendiliğinden indir</b>
+          <span className="mt-0.5 block text-xs text-silik">
+            Yalnızca bu cihazda geçerli (telefonda kapalı bırak). Açıkken uygulama her açıldığında, 6 saatte bir, eksik ve yeni
+            eklenen kitapların görüntülerini arka planda yavaşça indirir. Mobil veride (cihaz bildirirse) indirmez.
+          </span>
+        </span>
+      </label>
 
       {hata && <p className="kart text-kotu">Liste alınamadı: {hata}. İnternet bağlantısını kontrol edip sayfayı yenile.</p>}
       {!gruplar && !hata && <p className="kart text-silik">Görüntü listesi hazırlanıyor…</p>}
