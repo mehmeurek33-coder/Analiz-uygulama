@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { gorselleriIndir } from "@/lib/cevrimdisi";
-import { type Grup, gorselGruplari, otoIndirAcik, otoIndirAyarla, otoIptal } from "@/lib/gorselListesi";
+import { type Grup, arkaPlanDestekli, arkaPlanDurumu, arkaPlandaIndir, gorselGruplari, otoIndirAcik, otoIndirAyarla, otoIptal } from "@/lib/gorselListesi";
 
 function mb(b: number) {
   return b >= 1e9 ? `${(b / 1e9).toFixed(2)} GB` : `${Math.round(b / 1e6)} MB`;
@@ -22,6 +22,22 @@ export default function TableteIndir() {
   const iptal = useRef({ dur: false });
   const [oto, setOto] = useState(false);
   useEffect(() => setOto(otoIndirAcik()), []);
+  // Tarayıcının arka plan indirmesi (Android Chrome): sekmeden çıkınca da sürer
+  const [arka, setArka] = useState<boolean | null>(null);
+  const [bg, setBg] = useState<{ adet: number; inen: number }>({ adet: 0, inen: 0 });
+  const [bgHata, setBgHata] = useState<string | null>(null);
+  useEffect(() => {
+    void arkaPlanDestekli().then(setArka);
+    let onceki = 0;
+    const t = setInterval(async () => {
+      const d = await arkaPlanDurumu();
+      setBg(d);
+      if (onceki > 0 && d.adet < onceki) void yukle(); // bir parça bitti: sayıları tazele
+      onceki = d.adet;
+    }, 3000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function alanOlc() {
     try {
@@ -45,7 +61,20 @@ export default function TableteIndir() {
     void yukle();
   }, []);
 
-  async function indir(ad: string, urller: string[]) {
+  async function indir(ad: string, urller: string[], anahtar = ad) {
+    if (arka) {
+      setBgHata(null);
+      try {
+        otoIptal.dur = true;
+        const n = await arkaPlandaIndir([{ anahtar, ad, urller }]);
+        if (n === 0 && bg.adet === 0) setBgHata("Hepsi zaten tablette.");
+        setBg(await arkaPlanDurumu());
+        return;
+      } catch (e) {
+        // Desteklenmedi ya da yer yetmedi: sayfa açıkken indirmeye düş
+        setBgHata(`Arka planda başlatılamadı (${e instanceof Error ? e.message : "hata"}); sayfa açıkken indiriliyor.`);
+      }
+    }
     iptal.current = { dur: false };
     otoIptal.dur = true; // arka plandaki otomatik indirme dursun, ikisi aynı anda inmesin
     setIs({ ad, biten: 0, toplam: 0, bayt: 0 });
@@ -54,7 +83,28 @@ export default function TableteIndir() {
     await yukle();
   }
 
-  const calisiyor = Boolean(is && !is.bitti);
+  async function hepsiniIndir() {
+    if (arka && gruplar) {
+      setBgHata(null);
+      try {
+        otoIptal.dur = true;
+        await arkaPlandaIndir(gruplar.map((g) => ({ anahtar: g.anahtar, ad: `${g.ders} · ${g.kaynak}`, urller: g.urller })));
+        setBg(await arkaPlanDurumu());
+        return;
+      } catch (e) {
+        setBgHata(`Arka planda başlatılamadı (${e instanceof Error ? e.message : "hata"}); sayfa açıkken indiriliyor.`);
+      }
+    }
+    iptal.current = { dur: false };
+    otoIptal.dur = true;
+    const ad = "Bütün kitaplar";
+    setIs({ ad, biten: 0, toplam: 0, bayt: 0 });
+    const s = await gorselleriIndir(hepsi, (biten, toplam, bayt) => setIs({ ad, biten, toplam, bayt }), iptal.current);
+    setIs({ ad, biten: s.biten, toplam: s.toplam, bayt: s.bayt, hatali: s.hatali, bitti: true, sinir: s.sinir });
+    await yukle();
+  }
+
+  const calisiyor = Boolean(is && !is.bitti) || bg.adet > 0;
   const hepsi = gruplar?.flatMap((g) => g.urller) ?? [];
   const eksik = gruplar ? gruplar.reduce((t, g) => t + g.urller.length - g.tablette, 0) : 0;
 
@@ -96,6 +146,27 @@ export default function TableteIndir() {
 
       {hata && <p className="kart text-kotu">Liste alınamadı: {hata}. İnternet bağlantısını kontrol edip sayfayı yenile.</p>}
       {!gruplar && !hata && <p className="kart text-silik">Görüntü listesi hazırlanıyor…</p>}
+
+      {arka === true && (
+        <p className="text-xs text-iyi">
+          Bu tarayıcı arka planda indirebiliyor: indirme başladıktan sonra sayfadan, sekmeden çıkabilirsin; ilerleme bildirimde görünür.
+        </p>
+      )}
+      {arka === false && (
+        <p className="text-xs text-orta">
+          Bu tarayıcı (iPad/Safari gibi) arka planda indirmeye izin vermiyor: indirirken bu sayfa önde ve ekran açık kalsın. Yarıda
+          kalırsa tekrar bas, kaldığı yerden sürer. &quot;Kendiliğinden indir&quot; açıksa uygulamayı her açışında da devam eder.
+        </p>
+      )}
+      {bg.adet > 0 && (
+        <div className="kart text-sm">
+          <p className="font-semibold">Arka planda iniyor…</p>
+          <p className="text-xs text-silik tabular-nums">
+            {bg.adet} parça sürüyor · şu ana kadar {mb(bg.inen)}. Sayfadan çıkabilirsin; bitince görüntüler tablete yazılır.
+          </p>
+        </div>
+      )}
+      {bgHata && <p className="text-xs text-silik">{bgHata}</p>}
 
       {is && (
         <div className="kart space-y-2">
@@ -143,7 +214,7 @@ export default function TableteIndir() {
                 {eksik > 0 && <> · kalan ≈ {mb(eksik * ORT_BAYT)}</>}
               </p>
             </div>
-            <button type="button" className="btn-ana px-4 py-2 text-sm" disabled={calisiyor || eksik === 0} onClick={() => indir("Bütün kitaplar", hepsi)}>
+            <button type="button" className="btn-ana px-4 py-2 text-sm" disabled={calisiyor || eksik === 0} onClick={hepsiniIndir}>
               {eksik === 0 ? "✓ Hepsi tablette" : "Hepsini indir"}
             </button>
           </div>
@@ -166,7 +237,7 @@ export default function TableteIndir() {
                     type="button"
                     className="btn-ikincil px-3 py-1.5 text-xs"
                     disabled={calisiyor || kalan === 0}
-                    onClick={() => indir(`${g.ders} · ${g.kaynak}`, g.urller)}
+                    onClick={() => indir(`${g.ders} · ${g.kaynak}`, g.urller, g.anahtar)}
                   >
                     {kalan === 0 ? "✓ Tablette" : "İndir"}
                   </button>

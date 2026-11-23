@@ -33,6 +33,39 @@ self.addEventListener("fetch", (e) => {
   else if (r.mode === "navigate" && !u.pathname.startsWith("/api/")) e.respondWith(sayfa(r, u));
 });
 
+// Arka plan indirmesi (Background Fetch, /indir sayfası): bitince ya da kısmen bitince inenleri önbelleğe yaz
+self.addEventListener("backgroundfetchsuccess", (e) => e.waitUntil(bgKaydet(e, true)));
+self.addEventListener("backgroundfetchfail", (e) => e.waitUntil(bgKaydet(e, false)));
+self.addEventListener("backgroundfetchclick", (e) => e.waitUntil(self.clients.openWindow("/indir")));
+
+async function bgKaydet(e, tamam) {
+  const c = await caches.open(GORSEL);
+  let inen = 0;
+  let inmeyen = 0;
+  for (const k of await e.registration.matchAll()) {
+    try {
+      const y = await k.responseReady;
+      if (!y || y.status !== 200) throw new Error();
+      const govde = await y.blob();
+      const u = new URL(k.request.url);
+      await c.put(
+        u.origin + u.pathname,
+        new Response(govde, { headers: { "Content-Type": y.headers.get("Content-Type") || "image/webp", "x-sa-zaman": String(Date.now()) } }),
+      );
+      inen++;
+    } catch {
+      inmeyen++;
+    }
+  }
+  try {
+    await e.updateUI({
+      title: tamam && !inmeyen ? `✓ ${inen} görüntü tablete indi` : `${inen} görüntü indi, ${inmeyen} inmedi: İndir sayfasından tekrar başlat`,
+    });
+  } catch {
+    /* */
+  }
+}
+
 async function gorsel(e, r, u) {
   const anahtar = u.origin + u.pathname;
   const c = await caches.open(GORSEL);

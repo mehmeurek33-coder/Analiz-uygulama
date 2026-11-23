@@ -286,6 +286,8 @@ Raporlarken:
   "⇩ Bölümü tablete indir" bölümün görüntülerini, **`/indir` sayfası** (üst menü "İndir") ders/kaynak bazında ya da hepsini
   (kitap görünümü ≈ 11.000 dosya, ~770 MB) indirir; sayfa görüntüyü doğrudan `gorsel-v1` önbelleğine yazar, inenler atlanır,
   B2 günlük sınırına (art arda 403/429) takılırsa durur;
+  destekleyen tarayıcıda (Android Chrome) **Background Fetch** ile (`arkaPlandaIndir`, grup başına ≤1500'lük parçalar, id `sa-gorsel|…`):
+  sekme kapansa da iner, `sw.js` `backgroundfetchsuccess/fail` inenleri önbelleğe yazar; iPad/Safari'de yok (sayfa önde kalmalı);
   cihaz ayarı "kendiliğinden indir" (`sa-oto-indir`, `src/lib/gorselListesi.ts`, varsayılan kapalı; kullanıcı telefonda istemiyor):
   açıksa her açılışta 6 saatte bir eksik/yeni görüntüleri 2 eşzamanlı arka planda indirir; "Devam et" internetsiz son açılan tura gider; Bitir internet ister.
   Kitap görüntüleri `loading="lazy"` + `soru_kitap_w/h` (göç 18) ile yer ayrılır. **Yeniden üretilen görsel tablette 7 güne kadar

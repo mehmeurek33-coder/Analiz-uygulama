@@ -102,10 +102,82 @@ export async function otoIndir() {
   otoIptal.dur = false;
   try {
     const gruplar = await gorselGruplari();
-    await gorselleriIndir(gruplar.flatMap((g) => g.urller), () => {}, otoIptal, 2);
+    // Destekleniyorsa tarayıcıya devret (uygulama kapansa da sürer), yoksa sayfa açıkken yavaşça
+    if (await arkaPlanDestekli()) await arkaPlandaIndir(gruplar.map((g) => ({ ...g, ad: `${g.ders} · ${g.kaynak}` })));
+    else await gorselleriIndir(gruplar.flatMap((g) => g.urller), () => {}, otoIptal, 2);
   } catch {
     /* bir dahaki sefere */
   } finally {
     otoCalisiyor = false;
   }
+}
+
+// ---------------------------------------------------------------- tarayıcının arka plan indirmesi (Background Fetch)
+// Android'de Chrome (ve Chromium tabanlılar): indirme tarayıcıya devredilir, sekme/uygulama kapansa da sürer, bildirimde
+// ilerleme görünür; bitince public/sw.js görüntüleri `gorsel-v1` önbelleğine yazar. iPad/Safari'de yok: sayfa önde kalmalı.
+type BgKayit = { id: string; downloaded: number; downloadTotal: number; result: string };
+type BgYonetici = {
+  fetch: (id: string, istekler: string[], secenek: Record<string, unknown>) => Promise<BgKayit>;
+  getIds: () => Promise<string[]>;
+  get: (id: string) => Promise<BgKayit | undefined>;
+};
+
+async function bgYonetici(): Promise<BgYonetici | null> {
+  try {
+    if (!("serviceWorker" in navigator)) return null;
+    const kayit = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<null>((coz) => setTimeout(() => coz(null), 3000)),
+    ]);
+    return ((kayit as unknown as { backgroundFetch?: BgYonetici } | null)?.backgroundFetch ?? null);
+  } catch {
+    return null;
+  }
+}
+
+export async function arkaPlanDestekli() {
+  return Boolean(await bgYonetici());
+}
+
+const BG_ONEK = "sa-gorsel|";
+const PARCA = 1500;
+
+/** Eksik görüntüleri tarayıcının arka plan indirmesine verir (grup başına, en çok 1500'lük parçalar). Başlayan dosya sayısı döner. */
+export async function arkaPlandaIndir(gruplar: { anahtar: string; ad: string; urller: string[] }[]) {
+  const bg = await bgYonetici();
+  if (!bg) throw new Error("Bu tarayıcı arka planda indirmeyi desteklemiyor");
+  const kayitli = await tablettekiGorseller();
+  const aktif = new Set(await bg.getIds());
+  if ([...aktif].some((i) => i.startsWith(BG_ONEK))) return 0; // zaten iniyor
+  let dosya = 0;
+  for (const g of gruplar) {
+    const eksik = [...new Set(g.urller)].filter((u) => !tablettemi(u, kayitli));
+    for (let i = 0; i * PARCA < eksik.length; i++) {
+      const parca = eksik.slice(i * PARCA, (i + 1) * PARCA);
+      await bg.fetch(`${BG_ONEK}${g.anahtar}|${i}|${Date.now()}`, parca, {
+        title: `${g.ad}: ${parca.length} görüntü`,
+        icons: [{ src: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+        // Tahmin cömert tutulur: gerçek boyut bunu aşarsa tarayıcı indirmeyi keser
+        downloadTotal: parca.length * 300_000,
+      });
+      dosya += parca.length;
+    }
+  }
+  return dosya;
+}
+
+/** Süren arka plan indirmeleri: adet ve inen bayt. */
+export async function arkaPlanDurumu() {
+  const bg = await bgYonetici();
+  if (!bg) return { adet: 0, inen: 0 };
+  let adet = 0;
+  let inen = 0;
+  for (const id of await bg.getIds()) {
+    if (!id.startsWith(BG_ONEK)) continue;
+    const k = await bg.get(id);
+    if (!k) continue;
+    adet++;
+    inen += k.downloaded;
+  }
+  return { adet, inen };
 }
