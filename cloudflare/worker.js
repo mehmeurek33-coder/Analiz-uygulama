@@ -8,6 +8,21 @@ export default {
   async fetch(istek, env) {
     const HEDEF = (env && env.HEDEF) || VARSAYILAN_HEDEF;
     const url = new URL(istek.url);
+    // Toplu yükleme: dosya doğrudan B2'ye (Vercel'den geçmez). Hedef yalnızca B2 yükleme sunucusu olabilir;
+    // yetki, Vercel'in verdiği B2 yükleme jetonudur (jetonsuz istek B2'de reddedilir).
+    if (url.pathname === "/b2-yukle" && istek.method === "POST") {
+      const hedef = istek.headers.get("x-b2-url") || "";
+      if (!/^https:\/\/pod-[\w-]+\.backblaze\.com\/b2api\/v\d\/b2_upload_file\//.test(hedef)) {
+        return new Response(JSON.stringify({ hata: "gecersiz hedef" }), { status: 400 });
+      }
+      const b = new Headers();
+      for (const k of ["authorization", "x-bz-file-name", "content-type", "x-bz-content-sha1"]) {
+        const v = istek.headers.get(k);
+        if (v) b.set(k, v);
+      }
+      const c = await fetch(hedef, { method: "POST", headers: b, body: istek.body });
+      return new Response(c.body, { status: c.status, headers: { "content-type": "application/json" } });
+    }
     if (url.pathname.startsWith("/b2/file/")) {
       const B2 = (env && env.B2) || VARSAYILAN_B2;
       const c = await fetch(B2 + url.pathname.slice(3) + url.search, { cf: { cacheEverything: true, cacheTtl: 86400 } });

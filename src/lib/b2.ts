@@ -136,6 +136,22 @@ export async function b2Yukle(yol: string, icerik: Buffer, tur: string) {
   throw new Error("B2 yükleme başarısız");
 }
 
+/**
+ * Doğrudan yükleme için B2 yükleme adresi ve jetonu (dosya Vercel'den geçmez: araç Cloudflare Worker'daki
+ * /b2-yukle üzerinden doğrudan B2'ye gönderir; Vercel "Fast Origin Transfer" kotası harcanmaz, HATALAR E10).
+ */
+export async function b2YuklemeAdresi() {
+  const y = await yetkilen();
+  const c = await fetch(`${y.apiUrl}/b2api/v3/b2_get_upload_url`, {
+    method: "POST",
+    headers: { Authorization: y.token },
+    body: JSON.stringify({ bucketId: y.bucketId }),
+  });
+  if (!c.ok) throw new Error(`B2 yükleme adresi: ${c.status}`);
+  const v = await c.json();
+  return { uploadUrl: v.uploadUrl as string, authorizationToken: v.authorizationToken as string };
+}
+
 /** Depodaki dosyaları listeler (en fazla 1000; kullanıcının yüklediği kaynak PDF'leri bulmak için). */
 export async function b2Listele(onek = "") {
   const y = await yetkilen();
