@@ -3,6 +3,9 @@
 const VARSAYILAN_HEDEF = "https://analiz-uygulama.vercel.app";
 // Görseller: /b2/file/<depo>/<yol>?Authorization=... doğrudan Backblaze'e (operatör B2 adresini engelleyebiliyor)
 const VARSAYILAN_B2 = "https://f003.backblazeb2.com";
+// Ağır sayfa verisi (sorular, açıklamalar) tarayıcıdan doğrudan Supabase'e: /sb/* -> Supabase (Vercel'den geçmez,
+// Vercel Fast Origin Transfer kotası, HATALAR E10). Yetki tarayıcının Supabase oturum jetonu (RLS).
+const VARSAYILAN_SUPABASE = "https://lbprozrznswlyqwybenw.supabase.co";
 
 export default {
   async fetch(istek, env) {
@@ -22,6 +25,16 @@ export default {
       }
       const c = await fetch(hedef, { method: "POST", headers: b, body: istek.body });
       return new Response(c.body, { status: c.status, headers: { "content-type": "application/json" } });
+    }
+    if (url.pathname.startsWith("/sb/")) {
+      const SB = (env && env.SUPABASE) || VARSAYILAN_SUPABASE;
+      const b = new Headers(istek.headers);
+      b.delete("cookie"); // uygulama çerezleri Supabase'e gitmesin
+      return fetch(SB + url.pathname.slice(3) + url.search, {
+        method: istek.method,
+        headers: b,
+        body: ["GET", "HEAD"].includes(istek.method) ? undefined : istek.body,
+      });
     }
     if (url.pathname.startsWith("/b2/file/")) {
       const B2 = (env && env.B2) || VARSAYILAN_B2;
