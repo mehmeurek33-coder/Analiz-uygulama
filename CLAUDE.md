@@ -325,8 +325,9 @@ Raporlarken:
   `v_konu_performans` çekme; `perf_konu(bas, son)` / `perf_gun(bas, son)` RPC'lerini kullan.
   Listeleri ders/set ile filtrele (`v_set_ilerleme.ders`, `v_ders_kaynak`, `v_son_cevap`).
 - **Açıklama görüntüleri:** artık **Backblaze B2** (`GORSEL_DEPO=b2`, kova `tus-analiz`, `src/lib/b2.ts`);
-  yükleme `POST /api/gorsel-yukle?yol=<ad>` (`x-yukleme-anahtari` başlığı = `YUKLEME_ANAHTARI`, değeri
-  scratchpad'de `yukleme_anahtari`; araç `b2_yukle.py`), kaynak PDF'ler `GET /api/kaynak`. Açıklama blokları:
+  yükleme `b2_yukle.py` ile **Vercel'den geçmeden** (`/api/b2-yukleme-adresi` → Worker `/b2-yukle` → B2; Vercel Fast Origin
+  Transfer kotası 10 GB/ay, aşılırsa site durur, HATALAR E10; eski `POST /api/gorsel-yukle` yalnız `ESKI_YOL=1`)
+  (`x-yukleme-anahtari` başlığı = `YUKLEME_ANAHTARI`, değeri scratchpad'de `yukleme_anahtari`), kaynak PDF'ler `GET /api/kaynak`. Açıklama blokları:
   `{t:"m",x}` metin + `{t:"g",yol,w,h,tur}` yalnızca kendisi kadar kırpılmış şekil/tablo; `aciklama_gorsel` tam
   hâli ("Kitaptaki hâlini göster"). **Kalite düşürülmez** (kullanıcı isteği, yer var): görseller
   `GORSEL_YUKSEK=1 aciklama_blok.py` ile tam çözünürlük + tam gri ton WebP q88 (~200 KB/parça; JSON'daki w/h
