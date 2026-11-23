@@ -195,47 +195,113 @@ export async function bolumOku(denemeId: string): Promise<CozumSorusu[] | null> 
   }
 }
 
-/** Bölümün bütün görsellerini (soru + kitaptaki açıklama) servis çalışanı önbelleğine indirir. */
-export async function gorselleriIndir(sorular: CozumSorusu[], ilerleme: (biten: number, toplam: number) => void) {
-  const urller = new Set<string>();
-  for (const s of sorular) {
-    if (s.kitapGorsel) urller.add(s.kitapGorsel);
-    if (s.soruGorsel) urller.add(s.soruGorsel);
-    const a = s.anahtar ?? s.sonuc;
-    if (!a) continue;
-    if (a.aciklamaKitap?.length) {
-      for (const k of a.aciklamaKitap) if (k.url) urller.add(k.url);
-    } else {
-      for (const b of a.aciklamaBloklar ?? []) if (b.t === "g" && b.url) urller.add(b.url);
-    }
+// ---------------------------------------------------------------- görseller (public/sw.js ile aynı önbellek ve anahtar)
+const GORSEL = "gorsel-v1";
+/** Önbellek anahtarı: bağlantıdaki geçici jeton (?Authorization=) atılır, yol kalır (sw.js ile aynı). */
+const gorselAnahtari = (url: string) => {
+  const u = new URL(url, window.location.origin);
+  return u.origin + u.pathname;
+};
+
+/** Tablette kayıtlı görsellerin anahtarları. */
+export async function tablettekiGorseller(): Promise<Set<string>> {
+  try {
+    const c = await caches.open(GORSEL);
+    return new Set((await c.keys()).map((r) => gorselAnahtari(r.url)));
+  } catch {
+    return new Set();
   }
-  const liste = [...urller];
+}
+
+export function tablettemi(url: string, kayitli: Set<string>) {
+  return kayitli.has(gorselAnahtari(url));
+}
+
+/**
+ * Görselleri indirip doğrudan önbelleğe yazar (servis çalışanı etkin olmasa da olur); tablette olanlar atlanır.
+ * `iptal.dur = true` yapılınca durur. Ekran kapanmasın diye mümkünse ekran kilidi alınır.
+ */
+export async function gorselleriIndir(
+  urller: string[],
+  ilerleme: (biten: number, toplam: number, bayt: number) => void,
+  iptal: { dur: boolean } = { dur: false },
+) {
+  const kayitli = await tablettekiGorseller();
+  const liste = [...new Set(urller)].filter((u) => !kayitli.has(gorselAnahtari(u)));
   const toplam = liste.length;
   let biten = 0;
   let hatali = 0;
-  ilerleme(0, toplam);
-  const isci = async () => {
-    for (;;) {
-      const u = liste.pop();
-      if (!u) return;
-      try {
-        const y = await fetch(u, { credentials: "same-origin" });
-        if (!y.ok) hatali++;
-        await y.arrayBuffer();
-      } catch {
-        hatali++;
-      }
-      ilerleme(++biten, toplam);
-    }
-  };
-  await Promise.all(Array.from({ length: 4 }, isci));
-  ilerleme(toplam, toplam);
+  let bayt = 0;
+  // Backblaze günlük ücretsiz sınırı (403 download/transaction cap) ya da istek sınırı (429): art arda gelirse dur
+  let sinirArt = 0;
+  let sinir = false;
+  ilerleme(0, toplam, 0);
+  let kilit: { release: () => Promise<void> } | null = null;
+  try {
+    kilit = await (navigator as unknown as { wakeLock?: { request: (t: string) => Promise<{ release: () => Promise<void> }> } }).wakeLock?.request("screen") ?? null;
+  } catch {
+    /* desteklenmiyor */
+  }
   try {
     await navigator.storage?.persist?.();
   } catch {
     /* */
   }
-  return { toplam, hatali };
+  const c = await caches.open(GORSEL);
+  const isci = async () => {
+    for (;;) {
+      if (iptal.dur) return;
+      const u = liste.pop();
+      if (!u) return;
+      try {
+        const y = await fetch(u, { credentials: "same-origin", cache: "no-store" });
+        if (y.status === 403 || y.status === 429) {
+          if (++sinirArt >= 5) {
+            sinir = true;
+            iptal.dur = true;
+          }
+          throw new Error(String(y.status));
+        }
+        if (y.status !== 200) throw new Error(String(y.status));
+        sinirArt = 0;
+        const govde = await y.blob();
+        bayt += govde.size;
+        await c.put(
+          gorselAnahtari(u),
+          new Response(govde, {
+            headers: { "Content-Type": y.headers.get("Content-Type") || "image/webp", "x-sa-zaman": String(Date.now()) },
+          }),
+        );
+      } catch {
+        hatali++;
+      }
+      ilerleme(++biten, toplam, bayt);
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, isci));
+  try {
+    await kilit?.release();
+  } catch {
+    /* */
+  }
+  return { toplam, biten, hatali, bayt, durdu: iptal.dur, sinir };
+}
+
+/** Bir bölümün görsel bağlantıları (soru + kitaptaki açıklama; kitap hâli yoksa blok şekilleri). */
+export function bolumGorselleri(sorular: CozumSorusu[]) {
+  const urller: string[] = [];
+  for (const s of sorular) {
+    if (s.kitapGorsel) urller.push(s.kitapGorsel);
+    if (s.soruGorsel) urller.push(s.soruGorsel);
+    const a = s.anahtar ?? s.sonuc;
+    if (!a) continue;
+    if (a.aciklamaKitap?.length) {
+      for (const k of a.aciklamaKitap) if (k.url) urller.push(k.url);
+    } else {
+      for (const b of a.aciklamaBloklar ?? []) if (b.t === "g" && b.url) urller.push(b.url);
+    }
+  }
+  return urller;
 }
 
 const SON = "sa-son-deneme";

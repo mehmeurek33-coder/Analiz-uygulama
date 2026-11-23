@@ -49,6 +49,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Link href="/analiz" className="rounded-lg px-3 py-2.5 text-sm hover:bg-kart">
                 Analiz
               </Link>
+              <Link href="/indir" className="rounded-lg px-3 py-2.5 text-sm hover:bg-kart">
+                İndir
+              </Link>
               <Link href="/yedek" className="rounded-lg px-3 py-2.5 text-sm hover:bg-kart">
                 Yedek
               </Link>

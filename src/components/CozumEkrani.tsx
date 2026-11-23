@@ -7,7 +7,7 @@ import AciklamaKutusu, { type AciklamaBlogu, type KitapParcasi } from "@/compone
 import SoruKoku from "@/components/SoruKoku";
 import Gorsel from "@/components/Gorsel";
 import HataBildir from "@/components/HataBildir";
-import { bekleyenSayisi, gorselleriIndir, izSil, izYaz, kaydet, kuyrukDinle, kuyruguBosalt, sonDenemeSil } from "@/lib/cevrimdisi";
+import { bekleyenSayisi, bolumGorselleri, gorselleriIndir, izSil, izYaz, kaydet, kuyrukDinle, kuyruguBosalt, sonDenemeSil } from "@/lib/cevrimdisi";
 
 export type Sonuc = {
   dogru: boolean | null;
@@ -112,11 +112,7 @@ export default function CozumEkrani({
   }, [denemeId]);
   const [indirme, setIndirme] = useState<{ biten: number; toplam: number; hatali?: number; bitti?: boolean } | null>(null);
   async function tableteIndir() {
-    if (!navigator.serviceWorker?.controller) {
-      setIndirme({ biten: 0, toplam: 0, hatali: -1, bitti: true });
-      return;
-    }
-    const sonuc = await gorselleriIndir(sorular, (biten, toplam) => setIndirme({ biten, toplam }));
+    const sonuc = await gorselleriIndir(bolumGorselleri(sorular), (biten, toplam) => setIndirme({ biten, toplam }));
     setIndirme({ biten: sonuc.toplam, toplam: sonuc.toplam, hatali: sonuc.hatali, bitti: true });
   }
 
@@ -396,18 +392,16 @@ export default function CozumEkrani({
           </button>
         ) : indirme.bitti ? (
           <span>
-            {indirme.hatali === -1
-              ? "Önce sayfayı bir kez yenile, sonra tekrar indir."
-              : indirme.hatali
+            {indirme.hatali
                 ? `${indirme.toplam - indirme.hatali}/${indirme.toplam} görüntü indi; ${indirme.hatali} inmedi (internet?). Tekrar dene.`
-                : `✓ Tablete indi (${indirme.toplam} görüntü). Bu bölüm internetsiz de açılır.`}
+                : "✓ Bölüm tablette. İnternetsiz de açılır."}
           </span>
         ) : (
           <span className="tabular-nums">
             İndiriliyor… {indirme.biten}/{indirme.toplam}
           </span>
         )}
-        {indirme?.bitti && indirme.hatali !== 0 && indirme.hatali !== undefined && indirme.hatali > 0 && (
+        {indirme?.bitti && Boolean(indirme.hatali) && (
           <button type="button" className="underline" onClick={tableteIndir}>
             Tekrar dene
           </button>
