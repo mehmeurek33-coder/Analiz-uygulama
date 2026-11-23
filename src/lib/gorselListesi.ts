@@ -6,7 +6,7 @@
  * Otomatik indirme cihaz başına bir ayar (localStorage): varsayılan kapalı, telefon gibi cihazlara inmez.
  */
 
-import { gorselleriIndir, tablettekiGorseller, tablettemi } from "@/lib/cevrimdisi";
+import { gorselleriIndir, kalanPay, payHarca, tablettekiGorseller, tablettemi } from "@/lib/cevrimdisi";
 import { sablonHaritasi } from "@/lib/gorselYardim";
 import { gorselSablonuAl, veriIstemcisi } from "@/lib/veriIstemci";
 
@@ -104,7 +104,7 @@ export async function otoIndir() {
     const gruplar = await gorselGruplari();
     // Destekleniyorsa tarayıcıya devret (uygulama kapansa da sürer), yoksa sayfa açıkken yavaşça
     if (await arkaPlanDestekli()) await arkaPlandaIndir(gruplar.map((g) => ({ ...g, ad: `${g.ders} · ${g.kaynak}` })));
-    else await gorselleriIndir(gruplar.flatMap((g) => g.urller), () => {}, otoIptal, 2);
+    else await gorselleriIndir(gruplar.flatMap((g) => g.urller), () => {}, otoIptal, 2, true);
   } catch {
     /* bir dahaki sefere */
   } finally {
@@ -142,16 +142,22 @@ export async function arkaPlanDestekli() {
 const BG_ONEK = "sa-gorsel|";
 const PARCA = 1500;
 
-/** Eksik görüntüleri tarayıcının arka plan indirmesine verir (grup başına, en çok 1500'lük parçalar). Başlayan dosya sayısı döner. */
+/**
+ * Eksik görüntüleri tarayıcının arka plan indirmesine verir (grup başına parçalar), günlük paya kadar.
+ * Başlayan dosya sayısı ve yarına kalan döner.
+ */
 export async function arkaPlandaIndir(gruplar: { anahtar: string; ad: string; urller: string[] }[]) {
   const bg = await bgYonetici();
   if (!bg) throw new Error("Bu tarayıcı arka planda indirmeyi desteklemiyor");
   const kayitli = await tablettekiGorseller();
   const aktif = new Set(await bg.getIds());
-  if ([...aktif].some((i) => i.startsWith(BG_ONEK))) return 0; // zaten iniyor
+  const tumEksik = gruplar.reduce((t, g) => t + new Set(g.urller.filter((u) => !tablettemi(u, kayitli))).size, 0);
+  if ([...aktif].some((i) => i.startsWith(BG_ONEK))) return { dosya: 0, yarina: tumEksik }; // zaten iniyor
+  let pay = kalanPay();
   let dosya = 0;
   for (const g of gruplar) {
-    const eksik = [...new Set(g.urller)].filter((u) => !tablettemi(u, kayitli));
+    const eksik = [...new Set(g.urller)].filter((u) => !tablettemi(u, kayitli)).slice(0, pay);
+    pay -= eksik.length;
     for (let i = 0; i * PARCA < eksik.length; i++) {
       const parca = eksik.slice(i * PARCA, (i + 1) * PARCA);
       await bg.fetch(`${BG_ONEK}${g.anahtar}|${i}|${Date.now()}`, parca, {
@@ -161,9 +167,10 @@ export async function arkaPlandaIndir(gruplar: { anahtar: string; ad: string; ur
         downloadTotal: parca.length * 300_000,
       });
       dosya += parca.length;
+      payHarca(parca.length);
     }
   }
-  return dosya;
+  return { dosya, yarina: tumEksik - dosya };
 }
 
 /** Süren arka plan indirmeleri: adet ve inen bayt. */

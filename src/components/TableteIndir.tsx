@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { gorselleriIndir } from "@/lib/cevrimdisi";
+import { GUNLUK_PAY, gorselleriIndir, kalanPay } from "@/lib/cevrimdisi";
 import { type Grup, arkaPlanDestekli, arkaPlanDurumu, arkaPlandaIndir, gorselGruplari, otoIndirAcik, otoIndirAyarla, otoIptal } from "@/lib/gorselListesi";
 
 function mb(b: number) {
@@ -18,7 +18,9 @@ export default function TableteIndir() {
   const [gruplar, setGruplar] = useState<Grup[] | null>(null);
   const [hata, setHata] = useState<string | null>(null);
   const [alan, setAlan] = useState<{ kullanilan: number; kota: number } | null>(null);
-  const [is, setIs] = useState<{ ad: string; biten: number; toplam: number; bayt: number; hatali?: number; bitti?: boolean; sinir?: boolean } | null>(null);
+  const [is, setIs] = useState<{ ad: string; biten: number; toplam: number; bayt: number; hatali?: number; bitti?: boolean; sinir?: boolean; yarina?: number } | null>(null);
+  const [payKalan, setPayKalan] = useState<number | null>(null);
+  useEffect(() => setPayKalan(kalanPay()), []);
   const iptal = useRef({ dur: false });
   const [oto, setOto] = useState(false);
   useEffect(() => setOto(otoIndirAcik()), []);
@@ -67,7 +69,9 @@ export default function TableteIndir() {
       try {
         otoIptal.dur = true;
         const n = await arkaPlandaIndir([{ anahtar, ad, urller }]);
-        if (n === 0 && bg.adet === 0) setBgHata("Hepsi zaten tablette.");
+        setPayKalan(kalanPay());
+        if (n.dosya === 0 && n.yarina > 0) setBgHata("Bugünkü indirme payı doldu; kalanlar yarın.");
+        else if (n.yarina > 0) setBgHata(`${n.dosya} görüntü bugün iniyor, ${n.yarina} tanesi yarın (günlük pay).`);
         setBg(await arkaPlanDurumu());
         return;
       } catch (e) {
@@ -78,8 +82,9 @@ export default function TableteIndir() {
     iptal.current = { dur: false };
     otoIptal.dur = true; // arka plandaki otomatik indirme dursun, ikisi aynı anda inmesin
     setIs({ ad, biten: 0, toplam: 0, bayt: 0 });
-    const s = await gorselleriIndir(urller, (biten, toplam, bayt) => setIs({ ad, biten, toplam, bayt }), iptal.current);
-    setIs({ ad, biten: s.biten, toplam: s.toplam, bayt: s.bayt, hatali: s.hatali, bitti: true, sinir: s.sinir });
+    const s = await gorselleriIndir(urller, (biten, toplam, bayt) => setIs({ ad, biten, toplam, bayt }), iptal.current, 6, true);
+    setIs({ ad, biten: s.biten, toplam: s.toplam, bayt: s.bayt, hatali: s.hatali, bitti: true, sinir: s.sinir, yarina: s.kalanYarina });
+    setPayKalan(kalanPay());
     await yukle();
   }
 
@@ -88,7 +93,10 @@ export default function TableteIndir() {
       setBgHata(null);
       try {
         otoIptal.dur = true;
-        await arkaPlandaIndir(gruplar.map((g) => ({ anahtar: g.anahtar, ad: `${g.ders} · ${g.kaynak}`, urller: g.urller })));
+        const n = await arkaPlandaIndir(gruplar.map((g) => ({ anahtar: g.anahtar, ad: `${g.ders} · ${g.kaynak}`, urller: g.urller })));
+        setPayKalan(kalanPay());
+        if (n.dosya === 0 && n.yarina > 0) setBgHata("Bugünkü indirme payı doldu; kalanlar yarın.");
+        else if (n.yarina > 0) setBgHata(`${n.dosya} görüntü bugün iniyor, ${n.yarina} tanesi yarın (günlük pay).`);
         setBg(await arkaPlanDurumu());
         return;
       } catch (e) {
@@ -99,8 +107,9 @@ export default function TableteIndir() {
     otoIptal.dur = true;
     const ad = "Bütün kitaplar";
     setIs({ ad, biten: 0, toplam: 0, bayt: 0 });
-    const s = await gorselleriIndir(hepsi, (biten, toplam, bayt) => setIs({ ad, biten, toplam, bayt }), iptal.current);
-    setIs({ ad, biten: s.biten, toplam: s.toplam, bayt: s.bayt, hatali: s.hatali, bitti: true, sinir: s.sinir });
+    const s = await gorselleriIndir(hepsi, (biten, toplam, bayt) => setIs({ ad, biten, toplam, bayt }), iptal.current, 6, true);
+    setIs({ ad, biten: s.biten, toplam: s.toplam, bayt: s.bayt, hatali: s.hatali, bitti: true, sinir: s.sinir, yarina: s.kalanYarina });
+    setPayKalan(kalanPay());
     await yukle();
   }
 
@@ -144,6 +153,14 @@ export default function TableteIndir() {
         </span>
       </label>
 
+      {payKalan !== null && (
+        <p className="text-xs text-silik tabular-nums">
+          Bugünkü indirme payı: {payKalan}/{GUNLUK_PAY} görüntü. Görüntü deposunun (Backblaze) ücretsiz planı günde 2.500 indirmeye
+          izin veriyor (03:00&apos;te sıfırlanır); kalanı soru çözerken görüntülerin açılması için ayrılır. Hepsi birkaç günde iner;
+          &quot;kendiliğinden indir&quot; açıksa her gün kendisi devam eder.
+        </p>
+      )}
+
       {hata && <p className="kart text-kotu">Liste alınamadı: {hata}. İnternet bağlantısını kontrol edip sayfayı yenile.</p>}
       {!gruplar && !hata && <p className="kart text-silik">Görüntü listesi hazırlanıyor…</p>}
 
@@ -183,10 +200,12 @@ export default function TableteIndir() {
                   görebilirsin.
                 </>
               ) : is.toplam === 0
-                ? "Hepsi zaten tablette."
+                ? is.yarina
+                  ? `Bugünkü indirme payı doldu; kalan ${is.yarina} görüntü yarın (03:00'ten sonra) iner.`
+                  : "Hepsi zaten tablette."
                 : is.hatali || is.biten < is.toplam
                   ? `${is.biten - (is.hatali ?? 0)}/${is.toplam} görüntü indi (${mb(is.bayt)}). Tekrar bas, kalanlar iner.`
-                  : `✓ ${is.toplam} görüntü indi (${mb(is.bayt)}).`}
+                  : `✓ ${is.toplam} görüntü indi (${mb(is.bayt)}).${is.yarina ? ` ${is.yarina} tanesi yarın (günlük pay).` : ""}`}
             </p>
           ) : (
             <>

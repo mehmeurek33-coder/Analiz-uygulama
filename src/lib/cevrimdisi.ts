@@ -217,6 +217,31 @@ export function tablettemi(url: string, kayitli: Set<string>) {
   return kayitli.has(gorselAnahtari(url));
 }
 
+// ---------------------------------------------------------------- günlük indirme payı
+// Backblaze ücretsiz planı: günde 2.500 indirme (Class B), gece 00:00 UTC (03:00 TR) sıfırlanır. Toplu/otomatik indirme
+// bu cihazdan günde en çok GUNLUK_PAY görüntü indirir; kalanı soru çözerken görüntülerin açılması için kalır.
+export const GUNLUK_PAY = 1500;
+const PAY = "sa-gunluk-pay";
+const gun = () => new Date().toISOString().slice(0, 10); // UTC günü (B2 sıfırlaması)
+
+export function kalanPay(): number {
+  try {
+    const p = JSON.parse(localStorage.getItem(PAY) || "{}") as { gun?: string; harcanan?: number };
+    return p.gun === gun() ? Math.max(0, GUNLUK_PAY - (p.harcanan ?? 0)) : GUNLUK_PAY;
+  } catch {
+    return GUNLUK_PAY;
+  }
+}
+/** n görüntülük payı harcar (n = Infinity: bugünlük bitir, ör. Backblaze sınırı doldu). */
+export function payHarca(n: number) {
+  try {
+    const harcanan = Math.min(GUNLUK_PAY, GUNLUK_PAY - kalanPay() + n);
+    localStorage.setItem(PAY, JSON.stringify({ gun: gun(), harcanan }));
+  } catch {
+    /* */
+  }
+}
+
 /**
  * Görselleri indirip doğrudan önbelleğe yazar (servis çalışanı etkin olmasa da olur); tablette olanlar atlanır.
  * `iptal.dur = true` yapılınca durur. Ekran kapanmasın diye mümkünse ekran kilidi alınır.
@@ -226,9 +251,13 @@ export async function gorselleriIndir(
   ilerleme: (biten: number, toplam: number, bayt: number) => void,
   iptal: { dur: boolean } = { dur: false },
   eszamanli = 6,
+  /** Toplu/otomatik indirmede günlük paya uyulur; bölüm indirmesi (kullanıcı o an istiyor) paya sayılır ama kesilmez */
+  payli = false,
 ) {
   const kayitli = await tablettekiGorseller();
-  const liste = [...new Set(urller)].filter((u) => !kayitli.has(gorselAnahtari(u)));
+  const eksik = [...new Set(urller)].filter((u) => !kayitli.has(gorselAnahtari(u)));
+  const liste = payli ? eksik.slice(0, kalanPay()) : eksik;
+  const kalanYarina = eksik.length - liste.length;
   const toplam = liste.length;
   let biten = 0;
   let hatali = 0;
@@ -260,9 +289,11 @@ export async function gorselleriIndir(
           if (++sinirArt >= 5) {
             sinir = true;
             iptal.dur = true;
+            payHarca(Infinity);
           }
           throw new Error(String(y.status));
         }
+        payHarca(1);
         if (y.status !== 200) throw new Error(String(y.status));
         sinirArt = 0;
         const govde = await y.blob();
@@ -285,7 +316,7 @@ export async function gorselleriIndir(
   } catch {
     /* */
   }
-  return { toplam, biten, hatali, bayt, durdu: iptal.dur, sinir };
+  return { toplam, biten, hatali, bayt, durdu: iptal.dur, sinir, kalanYarina };
 }
 
 /** Bir bölümün görsel bağlantıları (soru + kitaptaki açıklama; kitap hâli yoksa blok şekilleri). */
