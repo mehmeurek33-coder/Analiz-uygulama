@@ -20,6 +20,8 @@ export type SonucSatiri = {
   soruGorsel?: string | null;
   /** Sorunun kitaptaki görüntüsü (kök + şıklar) */
   kitapGorsel?: string | null;
+  /** Kitap görüntüsünün piksel boyutu [genişlik, yükseklik]: yüklenmeden yeri ayrılır */
+  kitapBoyut?: [number, number] | null;
   secenekler: Record<string, string>;
   dogruCevap: string | null;
   aciklama: string | null;
@@ -107,7 +109,7 @@ export default function SonucListesi({ satirlar }: { satirlar: SonucSatiri[] }) 
                 <>
                   {s.vakaMetni && <SoruKoku metin="" vakaMetni={s.vakaMetni} />}
                   <div className="mt-2 overflow-hidden rounded-xl border border-cizgi bg-white p-1">
-                    <Gorsel src={s.kitapGorsel} alt="Sorunun kitaptaki hâli" loading="lazy" className="block h-auto w-full" />
+                    <Gorsel src={s.kitapGorsel} alt="Sorunun kitaptaki hâli" loading="lazy" decoding="async" width={s.kitapBoyut?.[0]} height={s.kitapBoyut?.[1]} className="block h-auto w-full" />
                   </div>
                   <div className="mt-3 grid grid-cols-5 gap-2">
                     {Object.keys(s.secenekler)

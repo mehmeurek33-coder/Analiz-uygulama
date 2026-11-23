@@ -806,3 +806,7 @@ alter table public.sorular add column if not exists soru_kitap_gorsel text;
 -- Telif kutusu, sayfa üst bilgisi, bölüm bandı ve "şöyle de sorulabilirdi" kutusu atılmış; iki sütuna yayılan
 -- tablo tek parça. Varsa açıklama bunlarla gösterilir; metin/blok hâli "Metin olarak göster" ile.
 alter table public.sorular add column if not exists aciklama_kitap jsonb;
+
+-- ---------------------------------------------------------------- göç 18: kitap görüntüsünün boyutu
+-- Çözüm ekranı görüntü inmeden yerini ayırır (geç yükleme kaydırmayı oynatmasın): <img width height>.
+alter table public.sorular add column if not exists soru_kitap_w integer, add column if not exists soru_kitap_h integer;

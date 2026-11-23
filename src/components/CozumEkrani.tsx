@@ -7,6 +7,7 @@ import AciklamaKutusu, { type AciklamaBlogu, type KitapParcasi } from "@/compone
 import SoruKoku from "@/components/SoruKoku";
 import Gorsel from "@/components/Gorsel";
 import HataBildir from "@/components/HataBildir";
+import { bekleyenSayisi, gorselleriIndir, izSil, izYaz, kaydet, kuyrukDinle, kuyruguBosalt, sonDenemeSil } from "@/lib/cevrimdisi";
 
 export type Sonuc = {
   dogru: boolean | null;
@@ -36,6 +37,8 @@ export type CozumSorusu = {
   soruGorsel?: string | null;
   /** Sorunun kitaptaki görüntüsü (kök + şıklar; imzalı bağlantı). Varsa soru buradan çözülür, metin isteğe bağlı. */
   kitapGorsel?: string | null;
+  /** Kitap görüntüsünün piksel boyutu [genişlik, yükseklik]: yüklenmeden yeri ayrılır */
+  kitapBoyut?: [number, number] | null;
   /** Soru bankası modunda, cevaplanmış soruların sonucu */
   sonuc: Sonuc | null;
   /** Soru bankası modunda önceden yüklenen anahtar (anında geri bildirim için) */
@@ -94,6 +97,28 @@ export default function CozumEkrani({
   const [genelHata, setGenelHata] = useState<string | null>(null);
   const [gecenSn, setGecenSn] = useState(0);
   const sonIslem = useRef<number>(Date.now());
+  // Tablette bekleyen (internetsiz yapılmış) kayıtlar
+  const [kuyrukta, setKuyrukta] = useState(0);
+  useEffect(() => {
+    const guncelle = () => setKuyrukta(bekleyenSayisi(denemeId));
+    guncelle();
+    const kaldir = kuyrukDinle(guncelle);
+    const cevrimici = () => void kuyruguBosalt();
+    window.addEventListener("online", cevrimici);
+    return () => {
+      kaldir();
+      window.removeEventListener("online", cevrimici);
+    };
+  }, [denemeId]);
+  const [indirme, setIndirme] = useState<{ biten: number; toplam: number; hatali?: number; bitti?: boolean } | null>(null);
+  async function tableteIndir() {
+    if (!navigator.serviceWorker?.controller) {
+      setIndirme({ biten: 0, toplam: 0, hatali: -1, bitti: true });
+      return;
+    }
+    const sonuc = await gorselleriIndir(sorular, (biten, toplam) => setIndirme({ biten, toplam }));
+    setIndirme({ biten: sonuc.toplam, toplam: sonuc.toplam, hatali: sonuc.hatali, bitti: true });
+  }
 
   useEffect(() => {
     const t = setInterval(() => setGecenSn((s) => s + 1), 1000);
@@ -131,16 +156,13 @@ export default function CozumEkrani({
   async function eminDegilDegistir(soruId: string) {
     const yeni = !eminDegil[soruId];
     setEminDegil((e) => ({ ...e, [soruId]: yeni }));
-    const istek = fetch("/api/emin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ denemeId, soruId, eminDegil: yeni }),
-    });
+    const istek = kaydet("/api/emin", { denemeId, soruId, eminDegil: yeni });
     kayitlar.current.add(istek);
     istek.finally(() => kayitlar.current.delete(istek)).catch(() => {});
     try {
       const cevap = await istek;
-      if (!cevap.ok) throw new Error();
+      if (cevap !== "kuyrukta" && !cevap.ok) throw new Error();
+      izYaz(denemeId, soruId, { e: yeni });
     } catch {
       setEminDegil((e) => ({ ...e, [soruId]: !yeni }));
       setHatalar((h) => ({ ...h, [soruId]: "İşaret kaydedilemedi, tekrar dene." }));
@@ -164,16 +186,13 @@ export default function CozumEkrani({
       },
     }));
     setAciklamaAcik((a) => ({ ...a, [id]: true }));
-    const istek = fetch("/api/aciklama-bak", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ denemeId, soruId: id }),
-    });
+    const istek = kaydet("/api/aciklama-bak", { denemeId, soruId: id });
     kayitlar.current.add(istek);
     istek.finally(() => kayitlar.current.delete(istek)).catch(() => {});
     try {
       const cevap = await istek;
-      if (!cevap.ok) throw new Error();
+      if (cevap !== "kuyrukta" && !cevap.ok) throw new Error();
+      izYaz(denemeId, id, { b: true });
     } catch {
       setBakildi((b) => ({ ...b, [id]: false }));
       setSonuclar((s) => {
@@ -232,17 +251,19 @@ export default function CozumEkrani({
     setBekleyen((b) => ({ ...b, [id]: true }));
 
     try {
-      const istek = fetch("/api/cevap", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ denemeId, soruId: id, isaretlenen: yeni, sureSn: sureAl() }),
-      });
+      const istek = kaydet("/api/cevap", { denemeId, soruId: id, isaretlenen: yeni, sureSn: sureAl() });
       kayitlar.current.add(istek);
       istek.finally(() => kayitlar.current.delete(istek)).catch(() => {});
       const cevap = await istek;
+      // İnternet yok: tablette bekler, bağlantı gelince gönderilir (anahtar önceden yüklü, sonuç zaten görünüyor)
+      if (cevap === "kuyrukta") {
+        izYaz(denemeId, id, { i: yeni });
+        return;
+      }
       const veri = await cevap.json().catch(() => null);
       if (!veri) throw new Error("Oturum süresi dolmuş olabilir, sayfayı yenileyip tekrar dene.");
       if (!cevap.ok) throw new Error(veri.hata || "Cevap kaydedilemedi.");
+      izYaz(denemeId, id, { i: yeni });
 
       if (anlik && !onceden) {
         setCevaplar((c) => ({ ...c, [id]: veri.isaretlenen }));
@@ -274,9 +295,15 @@ export default function CozumEkrani({
     setGenelHata(null);
     try {
       await Promise.allSettled([...kayitlar.current]);
-      const cevap = await fetch(`/api/deneme/${denemeId}/bitir`, { method: "POST" });
+      if (!(await kuyruguBosalt()))
+        throw new Error("İnternet bağlantısı yok. Cevapların tablette kayıtlı; bağlantı gelince tekrar Bitir'e bas.");
+      const cevap = await fetch(`/api/deneme/${denemeId}/bitir`, { method: "POST" }).catch(() => {
+        throw new Error("İnternet bağlantısı yok. Cevapların tablette kayıtlı; bağlantı gelince tekrar Bitir'e bas.");
+      });
       const veri = await cevap.json();
       if (!cevap.ok) throw new Error(veri.hata || "Bitirilemedi.");
+      sonDenemeSil(denemeId);
+      izSil(denemeId);
       // Hiç soru çözülmeden bitirilen soru bankası turu kaydedilmez
       if (veri.silindi) router.push("/");
       else router.push(`/sonuc/${denemeId}`);
@@ -355,6 +382,38 @@ export default function CozumEkrani({
         </div>
       </details>
 
+      {kuyrukta > 0 && (
+        <p className="rounded-lg border border-orta/40 bg-orta/10 px-3 py-2 text-xs text-orta">
+          İnternet yok: {kuyrukta} işlem tablette bekliyor, bağlantı gelince kendiliğinden kaydedilecek.
+        </p>
+      )}
+
+      {/* İnternetsiz çözmek için: bölümün bütün görüntülerini tablete indir */}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-silik">
+        {!indirme ? (
+          <button type="button" className="btn-ikincil px-3 py-1.5 text-xs" onClick={tableteIndir}>
+            ⇩ Bölümü tablete indir
+          </button>
+        ) : indirme.bitti ? (
+          <span>
+            {indirme.hatali === -1
+              ? "Önce sayfayı bir kez yenile, sonra tekrar indir."
+              : indirme.hatali
+                ? `${indirme.toplam - indirme.hatali}/${indirme.toplam} görüntü indi; ${indirme.hatali} inmedi (internet?). Tekrar dene.`
+                : `✓ Tablete indi (${indirme.toplam} görüntü). Bu bölüm internetsiz de açılır.`}
+          </span>
+        ) : (
+          <span className="tabular-nums">
+            İndiriliyor… {indirme.biten}/{indirme.toplam}
+          </span>
+        )}
+        {indirme?.bitti && indirme.hatali !== 0 && indirme.hatali !== undefined && indirme.hatali > 0 && (
+          <button type="button" className="underline" onClick={tableteIndir}>
+            Tekrar dene
+          </button>
+        )}
+      </div>
+
       {/* Sorular alt alta */}
       {sorular.map((soru, i) => {
         const secili = cevaplar[soru.soruId];
@@ -406,6 +465,10 @@ export default function CozumEkrani({
                   <Gorsel
                     src={soru.kitapGorsel}
                     alt={`${i + 1}. soru (kitaptaki hâli)`}
+                    loading="lazy"
+                    decoding="async"
+                    width={soru.kitapBoyut?.[0]}
+                    height={soru.kitapBoyut?.[1]}
                     className="block h-auto w-full"
                     onBasarisiz={() => setMetinGoster((m) => ({ ...m, [soru.soruId]: true }))}
                   />

@@ -4,6 +4,7 @@ import "./globals.css";
 import { oturumKullanicisi } from "@/lib/supabase/server";
 import CikisDugmesi from "@/components/CikisDugmesi";
 import { pdfYuklemeAcik } from "@/lib/ozellikler";
+import CevrimdisiKayit from "@/components/CevrimdisiKayit";
 
 export const metadata: Metadata = {
   title: "Soru Analiz",
@@ -30,6 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="tr">
       <body className="min-h-dvh">
+        {user && <CevrimdisiKayit />}
         {user && (
           <header className="sticky top-0 z-20 border-b border-cizgi bg-zemin/90 backdrop-blur">
             <nav className="mx-auto flex max-w-5xl items-center gap-1 px-3 py-2.5 sm:gap-2 sm:px-5">

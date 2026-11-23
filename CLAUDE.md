@@ -279,6 +279,14 @@ Raporlarken:
   Toplu araçlar scratchpad: `donustur_tts.py` (TTS Mikro konumları), `donustur_genel.py <ad> <bölümler> <D> <önek> <kaynak> <ders>`,
   `yukle_tts.py <ad> <b2_klasör>` (YENIDEN=1 yeniden üretilmişi yükler), `pano.py`, `konum_elle.json` (elle konum). Konum kaynakları: scratchpad `yeni/yapi.json` (eski_id = soru id),
   `deney/kayip_konum.json`, `yeni/ekle/yeni_harita.json` (yeni-<aday>). Kalem işaretli TTS Farmakoloji'de dikkat.
+- **Tablette önbellek / internetsiz (23.11):** `public/sw.js` (servis çalışanı, `CevrimdisiKayit` kaydeder): görseller
+  yol anahtarıyla (jeton yok sayılır) tablette kalır, 7 günden eskiyse arka planda tazelenir; `/_next/static` önce önbellek;
+  sayfalar önce ağ (8 sn) sonra son hâli. `src/lib/cevrimdisi.ts`: cevap/emin/bakıldı kaydı ağ yokken localStorage kuyruğunda
+  (`kaydet`), bağlantı gelince sırayla gider; bölüm verisi Cache API `veri-v1`'de, internetsiz açılışta yerel izle tamamlanır;
+  "⇩ Bölümü tablete indir" bütün görüntüleri indirir; "Devam et" internetsiz son açılan tura gider; Bitir internet ister.
+  Kitap görüntüleri `loading="lazy"` + `soru_kitap_w/h` (göç 18) ile yer ayrılır. **Yeniden üretilen görsel tablette 7 güne kadar
+  eski görünebilir** (kullanıcı bildirirse: sayfayı yenilemek yetmez; servis çalışanında GORSEL adını v2 yap). Yeni kitapta
+  `soru_kitap_w/h` yazmayı unutma (yerel webp boyutundan).
 - **Yanlışlarım (tekrar listesi, aralıklı tekrar):** hata yapılan sorular + doğru olsa da "emin değilim"
   işaretlenenler (`cevaplar.emin_degil`) + işaretlemeden açıklamasına bakılanlar
   (`cevaplar.aciklama_bakildi`, `/api/aciklama-bak`; soru kilitlenir) + test bitince boş bırakılıp

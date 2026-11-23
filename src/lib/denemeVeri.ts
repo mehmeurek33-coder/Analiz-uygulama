@@ -17,8 +17,8 @@ export async function denemeSorulari(
   // Soru bankası modunda (kişisel çalışma) anında geri bildirim için önceden gönderilir;
   // arayüz cevap verilene kadar göstermez. Puanlama yine sunucuda yapılır.
   const alanlar = deneme.anlik
-    ? "numara, metin, secenekler, ders, konu, vaka_metni, soru_gorsel, soru_kitap_gorsel, dogru_cevap, aciklama, aciklama_gorsel, aciklama_bloklar, aciklama_kitap"
-    : "numara, metin, secenekler, ders, konu, vaka_metni, soru_gorsel, soru_kitap_gorsel";
+    ? "numara, metin, secenekler, ders, konu, vaka_metni, soru_gorsel, soru_kitap_gorsel, soru_kitap_w, soru_kitap_h, dogru_cevap, aciklama, aciklama_gorsel, aciklama_bloklar, aciklama_kitap"
+    : "numara, metin, secenekler, ders, konu, vaka_metni, soru_gorsel, soru_kitap_gorsel, soru_kitap_w, soru_kitap_h";
 
   const { data: satirlar } = await supabase
     .from("cevaplar")
@@ -54,6 +54,8 @@ export async function denemeSorulari(
       vaka_metni?: string | null;
       soru_gorsel?: string | null;
       soru_kitap_gorsel?: string | null;
+      soru_kitap_w?: number | null;
+      soru_kitap_h?: number | null;
       dogru_cevap?: string | null;
       aciklama?: string | null;
       aciklama_gorsel?: string | null;
@@ -81,6 +83,7 @@ export async function denemeSorulari(
       vakaMetni: soru?.vaka_metni ?? null,
       soruGorsel: soru?.soru_gorsel ? (baglantilar.get(soru.soru_gorsel) ?? null) : null,
       kitapGorsel: soru?.soru_kitap_gorsel ? (baglantilar.get(soru.soru_kitap_gorsel) ?? null) : null,
+      kitapBoyut: soru?.soru_kitap_w && soru?.soru_kitap_h ? ([soru.soru_kitap_w, soru.soru_kitap_h] as [number, number]) : null,
       sonuc: acik
         ? { dogru: s.dogru, dogruCevap: soru?.dogru_cevap ?? null, aciklama: soru?.aciklama ?? null, aciklamaGorsel: gorsel, aciklamaBloklar: bloklar, aciklamaKitap: kitap }
         : null,
@@ -102,7 +105,7 @@ export async function sonucSatirlari(
   const { data: satirlar } = await supabase
     .from("cevaplar")
     .select(
-      "id, soru_id, sira, isaretlenen, dogru, sure_sn, sorular(numara, metin, vaka_metni, soru_gorsel, soru_kitap_gorsel, secenekler, dogru_cevap, aciklama, aciklama_gorsel, aciklama_bloklar, aciklama_kitap, ders, konu, alt_konu)",
+      "id, soru_id, sira, isaretlenen, dogru, sure_sn, sorular(numara, metin, vaka_metni, soru_gorsel, soru_kitap_gorsel, soru_kitap_w, soru_kitap_h, secenekler, dogru_cevap, aciklama, aciklama_gorsel, aciklama_bloklar, aciklama_kitap, ders, konu, alt_konu)",
     )
     .eq("deneme_id", id)
     .order("sira", { ascending: true });
@@ -127,6 +130,8 @@ export async function sonucSatirlari(
       vaka_metni: string | null;
       soru_gorsel: string | null;
       soru_kitap_gorsel?: string | null;
+      soru_kitap_w?: number | null;
+      soru_kitap_h?: number | null;
       secenekler: Record<string, string>;
       dogru_cevap: string | null;
       aciklama: string | null;
@@ -149,6 +154,7 @@ export async function sonucSatirlari(
       vakaMetni: soru?.vaka_metni ?? null,
       soruGorsel: soru?.soru_gorsel ? (baglantilar.get(soru.soru_gorsel) ?? null) : null,
       kitapGorsel: soru?.soru_kitap_gorsel ? (baglantilar.get(soru.soru_kitap_gorsel) ?? null) : null,
+      kitapBoyut: soru?.soru_kitap_w && soru?.soru_kitap_h ? ([soru.soru_kitap_w, soru.soru_kitap_h] as [number, number]) : null,
       secenekler: soru?.secenekler ?? {},
       dogruCevap: soru?.dogru_cevap ?? null,
       aciklama: soru?.aciklama ?? null,
