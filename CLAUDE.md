@@ -233,6 +233,8 @@ Raporlarken:
   kalıcı çözüm kendi alan adı (Cloudflare'den alınıp Vercel'e bağlanır). Kullanıcıya link verirken bu adresi kullan.
   Görseller de bu adresten: `/b2/file/<depo>/<yol>` (Worker doğrudan `f003.backblazeb2.com`'a, Vercel'de `next.config.ts`
   rewrite). B2 adresi tarayıcıya hiç verilmez (operatör engelledi, HATALAR E8). Worker değişirse API ile yeniden yükle.
+  Worker `/sb/*` → Supabase: çözüm ve sonuç ekranı verisi tarayıcıda doğrudan Supabase'den (Vercel Fast Origin Transfer
+  10 GB/ay kayan 30 gün, aşılırsa site ~1 ay durur; HATALAR E10). Yeni ağır sayfa yazarken veriyi `veriIstemcisi()` ile çek.
 - **Yüklü kitap:** TUSDATA Tüm TUS Soruları – Mikrobiyoloji, **36. baskıya güncellendi** (35. baskı
   soruları yerinde güncellendi, id'ler aynı; 33 yeni 2025 sorusu eklendi, `numara` boş): 72 bölüm, 1525 soru,
   1471'inde açıklama, 1430'unda blok açıklama (`aciklama_bloklar`). İlk eşleştirmede bulunamayan 66 eski
